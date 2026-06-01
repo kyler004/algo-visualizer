@@ -1,23 +1,26 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import useExecutionStore from '../../store/executionStore'
+import SmartValueRenderer from './renderers/SmartValueRenderer'
 
-type ValueType = 'number' | 'string' | 'boolean' | 'list' | 'object' | 'null' | 'undefined'
+type TypeLabel = 'number' | 'string' | 'boolean' | 'list' | 'dict' | 'null' | 'unknown'
 
-const TYPE_COLORS: Record<ValueType, string> = {
-    number:    'text-yellow-400',
-    string:    'text-amber-400',
-    boolean:   'text-blue-400',
-    list:      'text-green-400',
-    object:    'text-purple-400',
-    null:      'text-gray-500',
-    undefined: 'text-gray-500',
+const TYPE_COLORS: Record<TypeLabel, string> = {
+    number:  'text-yellow-400',
+    string:  'text-amber-400',
+    boolean: 'text-blue-400',
+    list:    'text-green-400',
+    dict:    'text-purple-400',
+    null:    'text-gray-500',
+    unknown: 'text-text-secondary',
 }
 
-function getType(value: unknown): ValueType {
-    if (Array.isArray(value)) return 'list'
-    if (value === null)       return 'null'
-    if (value === undefined)  return 'undefined'
-    return typeof value as ValueType
+function getTypeLabel(value: unknown): TypeLabel {
+    if (Array.isArray(value))                        return 'list'
+    if (value === null)                              return 'null'
+    if (typeof value === 'object')                   return 'dict'
+    const t = typeof value
+    if (t === 'number' || t === 'string' || t === 'boolean') return t
+    return 'unknown'
 }
 
 export default function VariablesPanel() {
@@ -25,9 +28,9 @@ export default function VariablesPanel() {
     const currentStep = steps[currentStepIndex]
     const prevStep    = steps[currentStepIndex - 1]
 
-    const variables:     Record<string, unknown> = currentStep?.variables ?? {}
-    const prevVariables: Record<string, unknown> = prevStep?.variables    ?? {}
-    const entries = Object.entries(variables)
+    const variables     = currentStep?.variables ?? {}
+    const prevVariables = prevStep?.variables    ?? {}
+    const entries       = Object.entries(variables)
 
     return (
         <div className="bg-bg-panel p-4">
@@ -40,11 +43,12 @@ export default function VariablesPanel() {
                     {currentStep ? 'No variables in scope' : 'Run code to see variables'}
                 </p>
             ) : (
-                <div className="space-y-1.5">
+                <div className="space-y-2.5">
                     <AnimatePresence initial={false}>
                         {entries.map(([name, value]) => {
-                            const changed = JSON.stringify(value) !== JSON.stringify(prevVariables[name])
-                            const type    = getType(value)
+                            const type      = getTypeLabel(value)
+                            const isComplex = type === 'list' || type === 'dict'
+
                             return (
                                 <motion.div
                                     key={name}
@@ -52,16 +56,39 @@ export default function VariablesPanel() {
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0 }}
                                     transition={{ duration: 0.15 }}
-                                    className={`flex items-center justify-between px-3 py-1.5 rounded text-sm font-mono
-                    ${changed ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-bg-hover'}`}
+                                    className="px-3 py-2.5 rounded bg-bg-hover"
                                 >
-                                    <span className="text-text-secondary">{name}</span>
-                                    <div className="flex items-center gap-2">
-                    <span className={`text-xs ${TYPE_COLORS[type] ?? 'text-text-secondary'}`}>
-                      {type}
-                    </span>
-                                        <span className="text-text-primary">{JSON.stringify(value)}</span>
+                                    {/* Header: variable name + type badge */}
+                                    <div className={`flex items-center gap-2
+                    ${isComplex ? 'mb-1' : 'justify-between'}`}>
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="font-mono text-sm text-text-secondary truncate">
+                        {name}
+                      </span>
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded
+                        bg-bg-primary/60 shrink-0 ${TYPE_COLORS[type]}`}>
+                        {type}
+                      </span>
+                                        </div>
+
+                                        {/* Primitive values shown inline with the header */}
+                                        {!isComplex && (
+                                            <SmartValueRenderer
+                                                name={name}
+                                                value={value}
+                                                prevValue={prevVariables[name]}
+                                            />
+                                        )}
                                     </div>
+
+                                    {/* Complex values (arrays, objects) rendered below the header */}
+                                    {isComplex && (
+                                        <SmartValueRenderer
+                                            name={name}
+                                            value={value}
+                                            prevValue={prevVariables[name]}
+                                        />
+                                    )}
                                 </motion.div>
                             )
                         })}
