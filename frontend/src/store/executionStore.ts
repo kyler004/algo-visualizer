@@ -1,14 +1,17 @@
 import { create } from 'zustand'
 import type { Step, Language } from '../types'
 
-const DEFAULT_CODE = `def add(a, b):
-    result = a + b
-    return result
+const DEFAULT_CODE = `def bubble_sort(arr):
+    n = len(arr)
+    for i in range(n):
+        for j in range(0, n - i - 1):
+            if arr[j] > arr[j + 1]:
+                arr[j], arr[j + 1] = arr[j + 1], arr[j]
+    return arr
 
-x = 10
-y = 5
-total = add(x, y)
-print(total)`
+arr = [5, 3, 8, 1, 9, 2, 7, 4]
+result = bubble_sort(arr)
+print(result)`;
 
 // Define the full shape of our store — state + actions in one interface
 interface ExecutionState {
