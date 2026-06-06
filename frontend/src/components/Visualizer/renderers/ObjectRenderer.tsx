@@ -28,7 +28,6 @@ export default function ObjectRenderer({ value, prevValue }: Props) {
                 ${i > 0 ? 'border-t border-border-subtle' : ''}
                 ${changed ? 'bg-amber-500/5' : 'bg-bg-primary/40'}`}
                         >
-                            <span className="text-accent-blue shrink-0">{key}</span>
                             <span className="text-text-secondary">:</span>
                             <span className={changed ? 'text-amber-400' : 'text-text-primary'}>
                 {JSON.stringify(val)}
