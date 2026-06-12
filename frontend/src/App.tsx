@@ -54,10 +54,10 @@ function Navbar({ onJoinSession }: NavbarProps) {
   return (
     <nav
       className="h-14 flex items-center justify-between px-6
-      bg-bg-secondary border-b border-border-subtle flex-shrink-0 gap-4"
+      bg-bg-secondary border-b border-border-subtle shrink-0 gap-4"
     >
       {/* Brand */}
-      <div className="flex items-center gap-2.5 flex-shrink-0">
+      <div className="flex items-center gap-2.5 shrink-0">
         <div className="w-6 h-6 bg-accent-blue rounded flex items-center justify-center">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             <rect
@@ -115,9 +115,9 @@ function Navbar({ onJoinSession }: NavbarProps) {
       </div>
 
       {/* Right — run button */}
-      <div className="flex items-center gap-3 flex-shrink-0">
+      <div className="flex items-center gap-3 shrink-0">
         {error && (
-          <span className="text-accent-red text-xs font-mono max-w-[200px] truncate">
+          <span className="text-accent-red text-xs font-mono max-w-50 truncate">
             {error}
           </span>
         )}
