@@ -1,10 +1,10 @@
 # sessions_manager/consumers.py
 import json
-from channels.generic.websocket import AsyncWebSocketConsumer
+from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 
 
-class CollabConsumer(AsyncWebSocketConsumer):
+class CollabConsumer(AsyncWebsocketConsumer):
     """
     Handles one WebSocket connection for one user in one room.
     Django Channels creates a fresh instance of this class for each connection.
