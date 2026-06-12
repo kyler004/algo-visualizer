@@ -174,14 +174,14 @@ export default function App() {
         </div>
 
         {/* Visualisation panels */}
-        <div className="flex-[2] flex flex-col overflow-y-auto divide-y divide-border-subtle">
+        <div className="flex-2 flex flex-col overflow-y-auto divide-y divide-border-subtle">
           <VariablesPanel />
           <CallStackPanel />
           <OutputPanel />
         </div>
       </div>
 
-      <div className="h-16 flex-shrink-0">
+      <div className="h-16 shrink-0">
         <StepControls />
       </div>
     </div>
