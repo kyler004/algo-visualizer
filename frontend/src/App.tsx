@@ -223,7 +223,7 @@ export default function App() {
         </div>
       </div>
 
-      <div className="h-16 flex-shrink-0">
+      <div className="h-16 shrink-0">
         <StepControls />
       </div>
 
