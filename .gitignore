@@ -14,4 +14,7 @@ dist/
 # OS
 .DS_Store
 .cursor
+.agents/
+.codex/
+.agent/
 ./idea
