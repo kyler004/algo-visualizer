@@ -1,36 +1,24 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { AnimatePresence } from "framer-motion";
 import MonacoEditor from "./components/Editor/MonacoEditor";
 import VariablesPanel from "./components/Visualizer/VariablesPanel";
 import CallStackPanel from "./components/Visualizer/CallStackPanel";
 import OutputPanel from "./components/Visualizer/OutputPanel";
 import StepControls from "./components/Controls/StepControls";
 import SessionControls from "./components/Collaboration/SessionControls";
+import AuthModal from "./components/Auth/AuthModal";
+import SessionHistory from "./components/Sessions/SessionHistory";
 import usePlayback from "./hooks/usePlayback";
 import useExecution from "./hooks/useExecution";
 import useCollaboration from "./hooks/useCollaboration";
+import useAuth from "./hooks/useAuth";
 import useExecutionStore from "./store/executionStore";
 import useCollabStore from "./store/collabStore";
+import useAuthStore from "./store/authStore";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Inner component — only rendered when a collab session is active.
-// This is a separate component so the useCollaboration hook (which needs
-// a slug) is only called after a slug exists.
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Collab-aware editor (only mounted when slug exists) ───────────────────────
 function CollabEditor({ slug }: { slug: string }) {
-  const { broadcastCode, broadcastCursor, broadcastStepChange } =
-    useCollaboration(slug);
-
-  const { goToStep } = useExecutionStore();
-
-  // Wrap goToStep to also broadcast the change to collaborators
-  const handleStepChange = useCallback(
-    (index: number) => {
-      goToStep(index);
-      broadcastStepChange(index);
-    },
-    [goToStep, broadcastStepChange],
-  );
-
+  const { broadcastCode, broadcastCursor } = useCollaboration(slug);
   return (
     <MonacoEditor
       onCodeChange={broadcastCode}
@@ -39,25 +27,26 @@ function CollabEditor({ slug }: { slug: string }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Navbar
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Navbar ────────────────────────────────────────────────────────────────────
 interface NavbarProps {
   onJoinSession: (slug: string) => void;
+  onToggleHistory: () => void;
+  onToggleAuth: () => void;
 }
 
-function Navbar({ onJoinSession }: NavbarProps) {
+function Navbar({ onJoinSession, onToggleHistory, onToggleAuth }: NavbarProps) {
   const { runCode } = useExecution();
   const { isLoading, error } = useExecutionStore();
   const { slug } = useCollabStore();
+  const { user, logout } = useAuthStore();
 
   return (
     <nav
       className="h-14 flex items-center justify-between px-6
-      bg-bg-secondary border-b border-border-subtle shrink-0 gap-4"
+      bg-bg-secondary border-b border-border-subtle flex-shrink-0 gap-4"
     >
       {/* Brand */}
-      <div className="flex items-center gap-2.5 shrink-0">
+      <div className="flex items-center gap-2.5 flex-shrink-0">
         <div className="w-6 h-6 bg-accent-blue rounded flex items-center justify-center">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             <rect
@@ -109,18 +98,66 @@ function Navbar({ onJoinSession }: NavbarProps) {
         </span>
       </div>
 
-      {/* Centre — session controls */}
+      {/* Centre — collab controls */}
       <div className="flex-1 flex justify-center">
         <SessionControls onJoin={onJoinSession} />
       </div>
 
-      {/* Right — run button */}
-      <div className="flex items-center gap-3 shrink-0">
+      {/* Right — user + history + run */}
+      <div className="flex items-center gap-2 flex-shrink-0">
         {error && (
-          <span className="text-accent-red text-xs font-mono max-w-50 truncate">
+          <span className="text-accent-red text-xs font-mono max-w-[180px] truncate">
             {error}
           </span>
         )}
+
+        {/* Session history — only for logged-in users */}
+        {user && (
+          <button
+            onClick={onToggleHistory}
+            title="Session History"
+            className="p-2 rounded text-text-secondary hover:text-text-primary
+              hover:bg-bg-hover transition-colors"
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 15 15"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            >
+              <path d="M7.5 2v5.5l3 3" />
+              <circle cx="7.5" cy="7.5" r="5.5" />
+            </svg>
+          </button>
+        )}
+
+        {/* Auth button */}
+        {user ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-text-secondary">{user.username}</span>
+            <button
+              onClick={logout}
+              className="text-xs text-text-secondary hover:text-text-primary
+                px-2 py-1 rounded hover:bg-bg-hover transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={onToggleAuth}
+            className="text-xs text-text-secondary hover:text-text-primary
+              px-3 py-1.5 rounded border border-border-subtle
+              hover:bg-bg-hover transition-colors"
+          >
+            Sign in
+          </button>
+        )}
+
+        {/* Run button */}
         <button
           onClick={runCode}
           disabled={isLoading}
@@ -155,35 +192,52 @@ function Navbar({ onJoinSession }: NavbarProps) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Root App
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Root ──────────────────────────────────────────────────────────────────────
 export default function App() {
   usePlayback();
 
+  // Restore auth session on mount
+  useAuth();
+
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
+  const [showAuth, setShowAuth] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   return (
     <div className="h-screen flex flex-col bg-bg-primary font-ui overflow-hidden">
-      <Navbar onJoinSession={setActiveSlug} />
+      <Navbar
+        onJoinSession={setActiveSlug}
+        onToggleHistory={() => setShowHistory((v) => !v)}
+        onToggleAuth={() => setShowAuth((v) => !v)}
+      />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Editor — swaps to collab-aware version when in a session */}
         <div className="flex-[3] overflow-hidden border-r border-border-subtle">
           {activeSlug ? <CollabEditor slug={activeSlug} /> : <MonacoEditor />}
         </div>
 
-        {/* Visualisation panels */}
-        <div className="flex-2 flex flex-col overflow-y-auto divide-y divide-border-subtle">
+        <div className="flex-[2] flex flex-col overflow-y-auto divide-y divide-border-subtle">
           <VariablesPanel />
           <CallStackPanel />
           <OutputPanel />
         </div>
       </div>
 
-      <div className="h-16 shrink-0">
+      <div className="h-16 flex-shrink-0">
         <StepControls />
       </div>
+
+      {/* Modals / drawers */}
+      <AnimatePresence>
+        {showAuth && (
+          <AuthModal key="auth" onClose={() => setShowAuth(false)} />
+        )}
+      </AnimatePresence>
+
+      <SessionHistory
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+      />
     </div>
   );
 }

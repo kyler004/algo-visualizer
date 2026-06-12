@@ -78,3 +78,28 @@ export interface WsMessage {
   payload: Record<string, unknown>;
   user: CollabUser;
 }
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
+
+export interface AuthUser {
+  id:       number
+  username: string
+  email:    string
+}
+
+export interface AuthTokens {
+  access:  string
+  refresh: string
+}
+
+// ── Saved Sessions ────────────────────────────────────────────────────────────
+
+export interface SavedSession {
+  id:           string
+  title:        string
+  language:     string
+  code_preview?: string
+  code?:        string
+  created_at:   string
+  updated_at:   string
+}
