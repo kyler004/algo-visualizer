@@ -3,7 +3,6 @@ import useExecutionStore  from "../store/executionStore.ts";
 
 export default function usePlayback() {
     const { isPlaying, playbackSpeed, nextStep, currentStepIndex, steps } = useExecutionStore();
-    useExecutionStore();
 
     useEffect(() => {
         if (!isPlaying || steps.length === 0) return
@@ -13,5 +12,5 @@ export default function usePlayback() {
         }
         const timer = setTimeout(nextStep, playbackSpeed)
         return () => clearTimeout(timer)
-    }, [isPlaying, currentStepIndex, playbackSpeed, steps.length])
+    }, [isPlaying, currentStepIndex, playbackSpeed, steps.length, nextStep])
 }
