@@ -101,7 +101,12 @@ export default function useCollaboration(slug: string) {
       slug,
       user: localUser,
       onMessage: handleMessage,
-      onOpen: () => setConnected(true),
+      onOpen: () => {
+        setConnected(true);
+        // Seed room with current editor code so late joiners can hydrate via REST
+        const code = useExecutionStore.getState().code;
+        wsRef.current?.send("code_change", { code });
+      },
       onClose: () => setConnected(false),
     });
 

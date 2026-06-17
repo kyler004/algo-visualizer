@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { createSession, getSession } from "../../services/api";
 import useCollabStore from "../../store/collabStore";
+import useExecutionStore from "../../store/executionStore";
+import type { Language } from "../../types";
 import UserAvatars from "./UserAvatars";
 
 export default function SessionControls() {
@@ -30,7 +32,15 @@ export default function SessionControls() {
     setError(null);
     setIsJoining(true);
     try {
-      await getSession(trimmed);
+      const session = await getSession(trimmed);
+      if (session.code) {
+        useExecutionStore.getState().setCode(session.code);
+      }
+      if (session.language) {
+        useExecutionStore
+          .getState()
+          .setLanguage(session.language as Language);
+      }
       joinSession(trimmed);
       setJoinInput("");
     } catch {
