@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./themes/themes.css";
 
 @theme {
   --color-bg-primary: #0a0a0f;
@@ -23,33 +24,39 @@
 
 * { box-sizing: border-box; }
 
+html {
+  color-scheme: var(--color-scheme, dark);
+}
+
 body {
   margin: 0;
-  background-color: #0a0a0f;
-  color: #e2e8f0;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
   font-family: 'Outfit', sans-serif;
 }
 
-/* Applied by Monaco's deltaDecorations API */
 .executing-line-highlight {
-  background-color: rgba(77, 159, 255, 0.08) !important;
-  border-left: 3px solid #4d9fff !important;
+  background-color: var(--executing-line-bg) !important;
+  border-left: 3px solid var(--executing-line-border) !important;
 }
 
-/* Scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #1e1e2e; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #2d3748; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 
-/* Range (slider) input */
 input[type='range'] { -webkit-appearance: none; appearance: none; background: transparent; }
 input[type='range']::-webkit-slider-track {
-  height: 3px; background: #1e1e2e; border-radius: 2px;
+  height: 3px;
+  background: var(--color-border-subtle);
+  border-radius: 2px;
 }
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 12px; height: 12px; border-radius: 50%;
-  background: #4d9fff; margin-top: -4.5px; cursor: pointer;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-accent-blue);
+  margin-top: -4.5px;
+  cursor: pointer;
 }
-
