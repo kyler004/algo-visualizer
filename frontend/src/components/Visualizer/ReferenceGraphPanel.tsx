@@ -12,6 +12,8 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import useExecutionStore from '../../store/executionStore'
+import useThemeStore from '../../store/themeStore'
+import { getTheme } from '../../themes/definitions'
 import {
   collectInstances,
   isInstanceValue,
@@ -20,6 +22,15 @@ import {
 } from '../../utils/valueUtils'
 import { REFERENCE_FIELDS } from '../../types/value'
 import type { SerializedValue } from '../../types/value'
+import type { ThemeDefinition } from '../../themes/definitions'
+
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16)
+  const g = parseInt(h.slice(2, 4), 16)
+  const b = parseInt(h.slice(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
 
 function getLabel(attrs: Record<string, SerializedValue>, cls: string): string {
   const v = attrs.val ?? attrs.value
@@ -27,10 +38,11 @@ function getLabel(attrs: Record<string, SerializedValue>, cls: string): string {
   return cls
 }
 
-function buildFlowData(variables: Record<string, unknown>): {
-  nodes: Node[]
-  edges: Edge[]
-} {
+function buildFlowData(
+  variables: Record<string, unknown>,
+  theme: ThemeDefinition,
+): { nodes: Node[]; edges: Edge[] } {
+  const { colors: c } = theme
   const instances = collectInstances(variables)
   const nodes: Node[] = []
   const edges: Edge[] = []
@@ -49,7 +61,7 @@ function buildFlowData(variables: Record<string, unknown>): {
       data: {
         label: (
           <div className="text-xs font-mono">
-            <div className="font-semibold text-purple-300">{inst.class}</div>
+            <div className="font-semibold text-instance">{inst.class}</div>
             <div className="text-text-secondary">{label}</div>
             {inst.variableName && (
               <div className="text-[10px] text-accent-blue mt-0.5">{inst.variableName}</div>
@@ -58,14 +70,16 @@ function buildFlowData(variables: Record<string, unknown>): {
         ),
       },
       style: {
-        background: inst.isRef ? 'rgba(168,85,247,0.08)' : 'rgba(168,85,247,0.15)',
+        background: inst.isRef
+          ? hexToRgba(c.instance, 0.08)
+          : hexToRgba(c.instance, 0.15),
         border: inst.isRef
-          ? '1px dashed rgba(168,85,247,0.4)'
-          : '1px solid rgba(168,85,247,0.35)',
+          ? `1px dashed ${hexToRgba(c.instance, 0.4)}`
+          : `1px solid ${hexToRgba(c.instance, 0.35)}`,
         borderRadius: 8,
         padding: 8,
         minWidth: 120,
-        color: '#e2e8f0',
+        color: c.textPrimary,
       },
     })
 
@@ -76,29 +90,33 @@ function buildFlowData(variables: Record<string, unknown>): {
         let targetId: string | null = null
         if (isInstanceValue(val) || isRefValue(val)) targetId = val.id
 
+        const edgeColor = hexToRgba(c.edge, 0.5)
+
         edges.push({
           id: `${inst.id}-${field}-${targetId ?? 'null'}`,
           source: inst.id,
           target: targetId ?? `${inst.id}-null-${field}`,
           label: field,
           animated: targetId !== null,
-          style: { stroke: 'rgba(168,85,247,0.5)' },
-          labelStyle: { fill: '#94a3b8', fontSize: 10 },
-          markerEnd: { type: MarkerType.ArrowClosed, color: 'rgba(168,85,247,0.5)' },
+          style: { stroke: edgeColor },
+          labelStyle: { fill: c.textSecondary, fontSize: 10 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
         })
 
         if (!targetId) {
           nodes.push({
             id: `${inst.id}-null-${field}`,
             position: { x: col * 200 + 100, y: row * 120 + 60 },
-            data: { label: <span className="text-xs text-text-secondary font-mono">null</span> },
+            data: {
+              label: <span className="text-xs text-text-secondary font-mono">null</span>,
+            },
             style: {
-              background: 'rgba(100,100,100,0.1)',
-              border: '1px dashed rgba(100,100,100,0.3)',
+              background: hexToRgba(c.borderSubtle, 0.3),
+              border: `1px dashed ${hexToRgba(c.textSecondary, 0.4)}`,
               borderRadius: 6,
               padding: 4,
               fontSize: 10,
-              color: '#94a3b8',
+              color: c.textSecondary,
             },
           })
         }
@@ -111,11 +129,14 @@ function buildFlowData(variables: Record<string, unknown>): {
 
 export default function ReferenceGraphPanel() {
   const { steps, currentStepIndex } = useExecutionStore()
+  const themeId = useThemeStore((s) => s.themeId)
+  const theme = getTheme(themeId)
   const currentStep = steps[currentStepIndex]
+
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
     const variables = currentStep?.variables ?? {}
-    return buildFlowData(variables)
-  }, [currentStep])
+    return buildFlowData(variables, theme)
+  }, [currentStep, theme])
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
@@ -124,6 +145,16 @@ export default function ReferenceGraphPanel() {
     setNodes(initialNodes)
     setEdges(initialEdges)
   }, [initialNodes, initialEdges, setNodes, setEdges])
+
+  const gridColor =
+    theme.category === 'light'
+      ? 'rgba(0, 0, 0, 0.06)'
+      : 'rgba(255, 255, 255, 0.04)'
+
+  const maskColor =
+    theme.category === 'light'
+      ? 'rgba(255, 255, 255, 0.6)'
+      : 'rgba(0, 0, 0, 0.6)'
 
   if (!currentStep) {
     return (
@@ -152,13 +183,13 @@ export default function ReferenceGraphPanel() {
         onEdgesChange={onEdgesChange}
         fitView
         proOptions={{ hideAttribution: true }}
-        colorMode="dark"
+        colorMode={theme.category}
       >
-        <Background gap={16} color="rgba(255,255,255,0.04)" />
+        <Background gap={16} color={gridColor} />
         <Controls />
         <MiniMap
-          nodeColor="rgba(168,85,247,0.4)"
-          maskColor="rgba(0,0,0,0.6)"
+          nodeColor={hexToRgba(theme.colors.instance, 0.4)}
+          maskColor={maskColor}
         />
       </ReactFlow>
     </div>

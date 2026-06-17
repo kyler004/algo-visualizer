@@ -69,7 +69,7 @@ export default function CallStackPanel() {
                     ${isTop
                       ? 'bg-accent-blue/10 border border-accent-blue/20'
                       : 'bg-bg-hover'}
-                    ${isActiveCtor ? 'ring-1 ring-purple-500/50 shadow-[0_0_12px_rgba(168,85,247,0.15)]' : ''}`}
+                    ${isActiveCtor ? 'ring-1 ring-instance/50 shadow-[0_0_12px_color-mix(in_srgb,var(--color-instance)_15%,transparent)]' : ''}`}
                 >
                   <span
                     className={`w-1.5 h-1.5 rounded-full flex-shrink-0

@@ -176,7 +176,7 @@ export default function StructureGraphPanel() {
             y2={e.y2 + 16}
             stroke="currentColor"
             strokeWidth={1.5}
-            className="text-purple-500/50"
+            className="text-edge/50"
             initial={{ pathLength: 0, opacity: 0 }}
             animate={{ pathLength: 1, opacity: 1 }}
             transition={{ duration: 0.4, delay: i * 0.05 }}
@@ -198,14 +198,14 @@ export default function StructureGraphPanel() {
               width={NODE_W}
               height={NODE_H}
               rx={6}
-              className="fill-purple-500/15 stroke-purple-500/40"
+              className="fill-instance/15 stroke-instance/40"
               strokeWidth={1}
             />
             <text
               x={node.x + 20 + NODE_W / 2}
               y={node.y + 16 + NODE_H / 2 + 4}
               textAnchor="middle"
-              className="fill-purple-200 text-[10px] font-mono"
+              className="fill-instance text-[10px] font-mono"
               style={{ fontSize: 10 }}
             >
               {node.label.length > 12 ? node.label.slice(0, 11) + '…' : node.label}

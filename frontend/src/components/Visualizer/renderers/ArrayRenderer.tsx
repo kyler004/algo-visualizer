@@ -62,8 +62,8 @@ function BarChart({ items, prevItems, totalLength }: BarChartProps) {
             <motion.div
               key={i}
               className={`flex-1 rounded-t-sm flex items-start justify-center pt-0.5
-                ${changed ? 'bg-amber-400/90' : 'bg-accent-blue/70'}
-                ${offset.swapped ? 'ring-1 ring-white/40' : ''}`}
+                ${changed ? 'bg-accent-amber/90' : 'bg-accent-blue/70'}
+                ${offset.swapped ? 'ring-1 ring-text-primary/40' : ''}`}
               initial={{ height: 0, x: offset.x }}
               animate={{ height: barHeight, x: 0 }}
               transition={{ type: 'spring', stiffness: 260, damping: 22 }}
@@ -97,8 +97,8 @@ function BarChart({ items, prevItems, totalLength }: BarChartProps) {
         {totalLength > MAX_ITEMS && (
           <span className="text-[10px] text-text-secondary">+{totalLength - MAX_ITEMS} hidden</span>
         )}
-        <span className="flex items-center gap-1 text-[10px] text-amber-400/80">
-          <span className="w-2 h-2 rounded-sm bg-amber-400/90 inline-block" /> changed
+        <span className="flex items-center gap-1 text-[10px] text-accent-amber/80">
+          <span className="w-2 h-2 rounded-sm bg-accent-amber/90 inline-block" /> changed
         </span>
         <span className="flex items-center gap-1 text-[10px] text-accent-blue/80">
           <span className="w-2 h-2 rounded-sm bg-accent-blue/70 inline-block" /> unchanged
@@ -134,7 +134,7 @@ function BoxView({ items, prevItems, totalLength }: BoxViewProps) {
                   className={`min-w-9 h-8 px-2 flex items-center justify-center
                     border rounded font-mono text-xs transition-colors
                     ${changed
-                      ? 'border-amber-500/50 bg-amber-500/10 text-amber-400'
+                      ? 'border-accent-amber/50 bg-accent-amber/10 text-accent-amber'
                       : 'border-border-subtle bg-bg-primary text-text-primary'}`}
                 >
                   {typeof item === 'string' ? `"${item}"` : JSON.stringify(item)}

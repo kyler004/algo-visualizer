@@ -50,9 +50,9 @@ export default function ObjectRenderer({ value, prevValue, depth = 0 }: Props) {
                   transition={{ duration: 0.15 }}
                   className={`flex items-start gap-2 px-3 py-1.5 text-xs font-mono
                     ${i > 0 ? 'border-t border-border-subtle' : ''}
-                    ${isChanged ? 'bg-amber-500/5' : 'bg-bg-primary/40'}`}
+                    ${isChanged ? 'bg-accent-amber/5' : 'bg-bg-primary/40'}`}
                 >
-                  <span className="text-purple-300 shrink-0">{key}</span>
+                  <span className="text-accent-purple shrink-0">{key}</span>
                   <span className="text-text-secondary shrink-0">:</span>
                   <div className="flex-1 min-w-0">
                     <SmartValueRenderer

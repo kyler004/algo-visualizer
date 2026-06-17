@@ -4,13 +4,13 @@ import SmartValueRenderer from './renderers/SmartValueRenderer'
 import { getTypeLabel, isInstanceValue } from '../../utils/valueUtils'
 
 const TYPE_COLORS: Record<string, string> = {
-  number: 'text-yellow-400',
-  string: 'text-amber-400',
-  boolean: 'text-blue-400',
-  list: 'text-green-400',
-  dict: 'text-purple-400',
-  instance: 'text-purple-300',
-  null: 'text-gray-500',
+  number: 'text-accent-amber',
+  string: 'text-accent-amber',
+  boolean: 'text-accent-blue',
+  list: 'text-accent-green',
+  dict: 'text-accent-purple',
+  instance: 'text-instance',
+  null: 'text-text-secondary',
   repr: 'text-text-secondary',
   unknown: 'text-text-secondary',
 }
@@ -51,7 +51,7 @@ export default function VariablesPanel() {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.15 }}
                   className={`px-3 py-2.5 rounded bg-bg-hover
-                    ${isActiveInstance ? 'ring-1 ring-purple-500/40' : ''}`}
+                    ${isActiveInstance ? 'ring-1 ring-instance/40' : ''}`}
                   layoutId={isActiveInstance ? `var-${value.id}` : undefined}
                 >
                   <div className={`flex items-center gap-2

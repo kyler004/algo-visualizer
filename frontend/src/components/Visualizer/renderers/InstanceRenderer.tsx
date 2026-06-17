@@ -41,13 +41,13 @@ export default function InstanceRenderer({
     return (
       <motion.div
         layoutId={`instance-${value.id}`}
-        className="mt-1.5 px-3 py-2 rounded border border-dashed border-purple-500/40
-          bg-purple-500/5 text-xs font-mono text-purple-300"
+        className="mt-1.5 px-3 py-2 rounded border border-dashed border-instance/40
+          bg-instance/5 text-xs font-mono text-instance"
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.2 }}
       >
-        <span className="text-purple-400">{value.class}</span>
+        <span className="text-accent-purple">{value.class}</span>
         <span className="text-text-secondary ml-2">@ {value.id}</span>
       </motion.div>
     )
@@ -64,16 +64,16 @@ export default function InstanceRenderer({
       layoutId={`instance-${value.id}`}
       className={`mt-1.5 rounded border overflow-hidden
         ${name === undefined ? '' : ''}
-        border-purple-500/30 bg-purple-500/5`}
+        border-instance/30 bg-instance/5`}
       initial={currentEvent === 'call' ? { scale: 0.92, opacity: 0 } : false}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 320, damping: 26 }}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-1.5
-        bg-purple-500/10 border-b border-purple-500/20">
+        bg-instance/10 border-b border-instance/20">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-purple-300 font-mono">
+          <span className="text-xs font-semibold text-instance font-mono">
             {value.class}
           </span>
           <span className="text-[10px] text-text-secondary font-mono">
@@ -110,16 +110,16 @@ export default function InstanceRenderer({
                   initial="hidden"
                   exit="exit"
                   className={`flex items-start gap-2 px-3 py-1.5 text-xs font-mono
-                    ${isChanged ? 'bg-amber-500/8' : ''}`}
+                    ${isChanged ? 'bg-accent-amber/8' : ''}`}
                   animate={
                     isChanged && currentEvent === 'line'
                       ? {
                           opacity: 1,
                           x: 0,
                           boxShadow: [
-                            '0 0 0 0 rgba(245,158,11,0)',
-                            '0 0 0 3px rgba(245,158,11,0.25)',
-                            '0 0 0 0 rgba(245,158,11,0)',
+                            '0 0 0 0 color-mix(in srgb, var(--color-accent-amber) 0%, transparent)',
+                            '0 0 0 3px color-mix(in srgb, var(--color-accent-amber) 25%, transparent)',
+                            '0 0 0 0 color-mix(in srgb, var(--color-accent-amber) 0%, transparent)',
                           ],
                         }
                       : 'visible'
@@ -147,7 +147,7 @@ export default function InstanceRenderer({
                     )}
                   </div>
                   {change === 'new' && (
-                    <span className="text-[9px] text-green-400 shrink-0">new</span>
+                    <span className="text-[9px] text-accent-green shrink-0">new</span>
                   )}
                 </motion.div>
               )
