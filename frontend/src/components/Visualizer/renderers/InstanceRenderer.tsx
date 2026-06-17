@@ -108,20 +108,21 @@ export default function InstanceRenderer({
                   custom={i}
                   variants={rowVariants}
                   initial="hidden"
-                  animate="visible"
                   exit="exit"
                   className={`flex items-start gap-2 px-3 py-1.5 text-xs font-mono
                     ${isChanged ? 'bg-amber-500/8' : ''}`}
                   animate={
                     isChanged && currentEvent === 'line'
                       ? {
+                          opacity: 1,
+                          x: 0,
                           boxShadow: [
                             '0 0 0 0 rgba(245,158,11,0)',
                             '0 0 0 3px rgba(245,158,11,0.25)',
                             '0 0 0 0 rgba(245,158,11,0)',
                           ],
                         }
-                      : undefined
+                      : 'visible'
                   }
                   transition={{ duration: 0.5 }}
                 >
