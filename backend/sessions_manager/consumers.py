@@ -1,7 +1,25 @@
 # sessions_manager/consumers.py
 import json
+import os
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
+from redis.asyncio import Redis
+
+ROOM_TTL_SECONDS = 86400  # 24 hours
+
+_redis_client: Redis | None = None
+
+
+def _get_redis() -> Redis:
+    global _redis_client
+    if _redis_client is None:
+        host = os.getenv('REDIS_HOST', 'localhost')
+        _redis_client = Redis(host=host, port=6379, decode_responses=True)
+    return _redis_client
+
+
+def _room_users_key(slug: str) -> str:
+    return f'collab:room:{slug}:users'
 
 
 class CollabConsumer(AsyncWebsocketConsumer):
@@ -34,6 +52,7 @@ class CollabConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code: int):
         """Called when a client closes the connection (tab closed, network drop, etc.)"""
         if self.user_id:
+            await self._remove_room_user(self.slug, self.user_id)
             # Broadcast to everyone that this user left
             await self.channel_layer.group_send(
                 self.group_name,
@@ -82,6 +101,8 @@ class CollabConsumer(AsyncWebsocketConsumer):
     # ─────────────────────────────────────────────────────────
 
     async def _handle_user_join(self, payload: dict, user: dict):
+        existing_users = await self._add_room_user(self.slug, user)
+        await self._send_to_client('room_state', {'users': existing_users}, {})
         await self.channel_layer.group_send(
             self.group_name,
             {'type': 'collab.user_join', 'user': user}
@@ -149,3 +170,24 @@ class CollabConsumer(AsyncWebsocketConsumer):
     def _save_code(self, slug: str, code: str):
         from .models import CollabSession
         CollabSession.objects.filter(slug=slug).update(code=code)
+
+    async def _add_room_user(self, slug: str, user: dict) -> list[dict]:
+        """Register user in Redis roster; return other users already in the room."""
+        user_id = user.get('id')
+        if not user_id:
+            return []
+
+        redis = _get_redis()
+        key = _room_users_key(slug)
+        await redis.hset(key, user_id, json.dumps(user))
+        await redis.expire(key, ROOM_TTL_SECONDS)
+
+        others: list[dict] = []
+        for uid, raw in (await redis.hgetall(key)).items():
+            if uid != user_id:
+                others.append(json.loads(raw))
+        return others
+
+    async def _remove_room_user(self, slug: str, user_id: str):
+        redis = _get_redis()
+        await redis.hdel(_room_users_key(slug), user_id)
