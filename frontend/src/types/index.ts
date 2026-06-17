@@ -83,6 +83,7 @@ export interface RemoteCursor {
 export type WsMessageType =
   | "user_join"
   | "user_leave"
+  | "room_state"
   | "code_change"
   | "cursor_change"
   | "step_change";
