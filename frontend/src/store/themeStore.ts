@@ -20,6 +20,7 @@ const useThemeStore = create<ThemeState>()((set, get) => ({
 
   setTheme: (id) => {
     localStorage.setItem(THEME_STORAGE_KEY, id)
+    document.documentElement.setAttribute('data-theme', id)
     set({ themeId: id })
   },
 
@@ -30,6 +31,7 @@ const useThemeStore = create<ThemeState>()((set, get) => ({
     const themeId =
       stored && isValidThemeId(stored) ? stored : DEFAULT_THEME_ID
 
+    document.documentElement.setAttribute('data-theme', themeId)
     set({ themeId, initialized: true })
   },
 }))

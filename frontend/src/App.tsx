@@ -6,6 +6,8 @@ import StepControls from "./components/Controls/StepControls";
 import SessionControls from "./components/Collaboration/SessionControls";
 import AuthModal from "./components/Auth/AuthModal";
 import SessionHistory from "./components/Sessions/SessionHistory";
+import ThemeDropdown from "./components/Theme/ThemeDropdown";
+import ThemeSettingsModal from "./components/Theme/ThemeSettingsModal";
 import { StepAnimationProvider } from "./context/StepAnimationContext";
 import usePlayback from "./hooks/usePlayback";
 import useExecution from "./hooks/useExecution";
@@ -42,9 +44,10 @@ function CollabLayer({ slug }: { slug: string }) {
 interface NavbarProps {
   onToggleHistory: () => void;
   onToggleAuth: () => void;
+  onOpenThemeSettings: () => void;
 }
 
-function Navbar({ onToggleHistory, onToggleAuth }: NavbarProps) {
+function Navbar({ onToggleHistory, onToggleAuth, onOpenThemeSettings }: NavbarProps) {
   const { runCode } = useExecution();
   const { isLoading, error } = useExecutionStore();
   const { user, logout } = useAuthStore();
@@ -82,6 +85,8 @@ function Navbar({ onToggleHistory, onToggleAuth }: NavbarProps) {
             {error}
           </span>
         )}
+
+        <ThemeDropdown onOpenSettings={onOpenThemeSettings} />
 
         {user && (
           <button
@@ -123,7 +128,7 @@ function Navbar({ onToggleHistory, onToggleAuth }: NavbarProps) {
           onClick={runCode}
           disabled={isLoading}
           className="flex items-center gap-2 px-4 py-1.5 bg-accent-blue
-            hover:bg-blue-400 text-white text-sm font-medium rounded
+            hover:brightness-110 text-white text-sm font-medium rounded
             transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? (
@@ -152,6 +157,7 @@ export default function App() {
 
   const [showAuth, setShowAuth] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showThemeSettings, setShowThemeSettings] = useState(false);
   const { slug } = useCollabStore();
   const { steps, currentStepIndex } = useExecutionStore();
   const currentStep = steps[currentStepIndex];
@@ -161,6 +167,7 @@ export default function App() {
       <Navbar
         onToggleHistory={() => setShowHistory((v) => !v)}
         onToggleAuth={() => setShowAuth((v) => !v)}
+        onOpenThemeSettings={() => setShowThemeSettings(true)}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -181,6 +188,9 @@ export default function App() {
 
       <AnimatePresence>
         {showAuth && <AuthModal key="auth" onClose={() => setShowAuth(false)} />}
+        {showThemeSettings && (
+          <ThemeSettingsModal key="theme" onClose={() => setShowThemeSettings(false)} />
+        )}
       </AnimatePresence>
 
       <SessionHistory isOpen={showHistory} onClose={() => setShowHistory(false)} />
