@@ -1,6 +1,20 @@
 // Language type either python and javascript
 export type Language = "python" | "javascript";
 
+// Re-export serialized value types
+export type {
+  SerializedValue,
+  KindedValue,
+  InstanceValue,
+  RefValue,
+  ListValue,
+  DictValue,
+  CollectedInstance,
+  ReferenceEdge,
+} from './value'
+
+export type VisualizerTab = 'variables' | 'structure' | 'graph'
+
 // The vents our tracer emits
 export type EventType = "line" | "call" | "return" | "exception" | "error";
 

@@ -1,6 +1,5 @@
 # executor/tracer.py
 import sys
-import json
 import copy
 import io
 
@@ -10,6 +9,9 @@ class AlgoTracer:
     Instruments Python code using sys.settrace to capture
     a step-by-step snapshot of execution.
     """
+
+    MAX_DEPTH = 4
+    MAX_KEYS = 20
 
     def __init__(self, max_steps=500):
         self.steps = []
@@ -21,31 +23,77 @@ class AlgoTracer:
     # ------------------------------------------------------------------
     # Helper: safely convert any Python value to something JSON can hold
     # ------------------------------------------------------------------
-    def _safe_repr(self, value, depth=0):
+    def _object_id(self, value) -> str:
+        return hex(id(value))
+
+    def _is_user_instance(self, value) -> bool:
+        return hasattr(value, '__dict__') and not isinstance(
+            value, (type, type(sys))
+        )
+
+    def _safe_repr(self, value, depth=0, seen_ids=None):
         """
         Recursively convert a value to a JSON-serializable form.
-        We limit depth to avoid blowing up on circular references.
+        Primitives stay raw; complex values use typed _kind envelopes.
         """
-        if depth > 4:
-            return '...'
+        if seen_ids is None:
+            seen_ids = set()
+
+        if depth > self.MAX_DEPTH:
+            return {'_kind': 'repr', 'value': '...'}
 
         if isinstance(value, (int, float, str, bool, type(None))):
             return value
 
         if isinstance(value, (list, tuple)):
-            return [self._safe_repr(v, depth + 1) for v in value]
+            return {
+                '_kind': 'list',
+                'items': [
+                    self._safe_repr(v, depth + 1, seen_ids) for v in value
+                ],
+            }
 
         if isinstance(value, dict):
             return {
-                str(k): self._safe_repr(v, depth + 1)
-                for k, v in list(value.items())[:20]  # Cap at 20 keys
+                '_kind': 'dict',
+                'entries': {
+                    str(k): self._safe_repr(v, depth + 1, seen_ids)
+                    for k, v in list(value.items())[:self.MAX_KEYS]
+                },
             }
 
         if isinstance(value, set):
-            return list(self._safe_repr(v, depth + 1) for v in value)
+            return {
+                '_kind': 'set',
+                'items': [
+                    self._safe_repr(v, depth + 1, seen_ids) for v in value
+                ],
+            }
 
-        # Fallback — use Python's built-in repr()
-        return repr(value)
+        if self._is_user_instance(value):
+            obj_id = id(value)
+            if obj_id in seen_ids:
+                return {
+                    '_kind': 'ref',
+                    'id': self._object_id(value),
+                    'class': type(value).__name__,
+                }
+
+            seen_ids = seen_ids | {obj_id}
+            attrs = {}
+            for k, v in list(value.__dict__.items())[:self.MAX_KEYS]:
+                if k.startswith('__'):
+                    continue
+                attrs[k] = self._safe_repr(v, depth + 1, seen_ids)
+
+            return {
+                '_kind': 'instance',
+                'class': type(value).__name__,
+                'id': self._object_id(value),
+                'attrs': attrs,
+            }
+
+        return {'_kind': 'repr', 'value': repr(value)}
 
     # ------------------------------------------------------------------
     # Helper: extract local variables from the current frame
@@ -57,13 +105,12 @@ class AlgoTracer:
         """
         variables = {}
         for name, value in frame.f_locals.items():
-            # Skip dunder names like __builtins__
             if name.startswith('__'):
                 continue
             try:
                 variables[name] = self._safe_repr(value)
             except Exception:
-                variables[name] = '<unrepresentable>'
+                variables[name] = {'_kind': 'repr', 'value': '<unrepresentable>'}
         return variables
 
     # ------------------------------------------------------------------
@@ -77,25 +124,21 @@ class AlgoTracer:
           - arg:   event-specific data (return value, exception info, etc.)
         """
 
-        # Only trace code the user wrote, not Django internals
         if frame.f_code.co_filename != '<user_code>':
             return self._trace
 
-        # Safety valve — stop if we've hit the step limit
         if len(self.steps) >= self.max_steps:
             return None
 
         func_name = frame.f_code.co_name
         line_no = frame.f_lineno
 
-        # Grab any print() output that happened since last step
         current_output = self._stdout_buffer.getvalue()
         if current_output:
             self.captured_output.append(current_output)
             self._stdout_buffer.truncate(0)
             self._stdout_buffer.seek(0)
 
-        # ---- CALL: a function is being entered ----
         if event == 'call':
             self.call_stack.append({
                 'function': func_name,
@@ -111,7 +154,6 @@ class AlgoTracer:
                 'output': list(self.captured_output),
             })
 
-        # ---- LINE: about to execute a line ----
         elif event == 'line':
             self.steps.append({
                 'step': len(self.steps) + 1,
@@ -123,7 +165,6 @@ class AlgoTracer:
                 'output': list(self.captured_output),
             })
 
-        # ---- RETURN: a function is returning ----
         elif event == 'return':
             return_value = self._safe_repr(arg)
 
@@ -138,11 +179,9 @@ class AlgoTracer:
                 'output': list(self.captured_output),
             })
 
-            # Pop the function off the call stack as it returns
             if self.call_stack:
                 self.call_stack.pop()
 
-        # ---- EXCEPTION: something went wrong ----
         elif event == 'exception':
             exc_type, exc_value, _ = arg
             self.steps.append({
@@ -159,7 +198,7 @@ class AlgoTracer:
                 'output': list(self.captured_output),
             })
 
-        return self._trace  # Must return itself to keep tracing
+        return self._trace
 
     # ------------------------------------------------------------------
     # Public method: run user code and return steps
@@ -169,19 +208,15 @@ class AlgoTracer:
         Executes user code with tracing enabled.
         Returns a list of step snapshots.
         """
-        # Redirect stdout so we capture print() calls
         old_stdout = sys.stdout
         sys.stdout = self._stdout_buffer
 
         try:
             sys.settrace(self._trace)
-            # compile() lets us name the "file" <user_code>
-            # so our tracer knows to only trace user lines
             compiled = compile(code, '<user_code>', 'exec')
-            exec(compiled, {})  # Empty globals = clean sandbox
+            exec(compiled, {})
 
         except Exception as e:
-            # Code threw an unhandled exception — still return what we got
             self.steps.append({
                 'step': len(self.steps) + 1,
                 'event': 'error',
@@ -195,7 +230,7 @@ class AlgoTracer:
             })
 
         finally:
-            sys.settrace(None)       # Always turn off tracing
-            sys.stdout = old_stdout  # Always restore stdout
+            sys.settrace(None)
+            sys.stdout = old_stdout
 
         return self.steps
