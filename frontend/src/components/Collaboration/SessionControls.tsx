@@ -3,12 +3,8 @@ import { createSession, getSession } from "../../services/api";
 import useCollabStore from "../../store/collabStore";
 import UserAvatars from "./UserAvatars";
 
-interface Props {
-  onJoin: (slug: string) => void;
-}
-
-export default function SessionControls({ onJoin }: Props) {
-  const { slug } = useCollabStore();
+export default function SessionControls() {
+  const { slug, joinSession } = useCollabStore();
   const [joinInput, setJoinInput] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
@@ -19,7 +15,7 @@ export default function SessionControls({ onJoin }: Props) {
     setIsCreating(true);
     try {
       const session = await createSession();
-      onJoin(session.slug);
+      joinSession(session.slug);
     } catch {
       setError("Failed to create session");
     } finally {
@@ -35,7 +31,7 @@ export default function SessionControls({ onJoin }: Props) {
     setIsJoining(true);
     try {
       await getSession(trimmed);
-      onJoin(trimmed);
+      joinSession(trimmed);
       setJoinInput("");
     } catch {
       setError("Session not found");

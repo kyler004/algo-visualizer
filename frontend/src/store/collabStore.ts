@@ -34,6 +34,9 @@ interface CollabState {
   removeRemoteUser: (userId: string) => void;
   updateCursor: (cursor: RemoteCursor) => void;
   removeCursor: (userId: string) => void;
+  setRemoteUsers: (users: CollabUser[]) => void;
+  joinSession: (slug: string) => void;
+  leaveSession: () => void;
   reset: () => void;
 }
 
@@ -71,6 +74,20 @@ const useCollabStore = create<CollabState>()((set) => ({
     set((state) => ({
       remoteCursors: state.remoteCursors.filter((c) => c.user.id !== userId),
     })),
+
+  setRemoteUsers: (users) => set({ remoteUsers: users }),
+
+  joinSession: (slug) =>
+    set({ slug, remoteUsers: [], remoteCursors: [] }),
+
+  leaveSession: () =>
+    set({
+      slug: null,
+      isConnected: false,
+      localUser: null,
+      remoteUsers: [],
+      remoteCursors: [],
+    }),
 
   reset: () =>
     set({

@@ -38,7 +38,8 @@ function Avatar({
 }
 
 export default function UserAvatars() {
-  const { localUser, remoteUsers, isConnected, slug } = useCollabStore();
+  const { localUser, remoteUsers, isConnected, slug, leaveSession } =
+    useCollabStore();
 
   if (!slug) return null; // Not in a collab session
 
@@ -66,6 +67,15 @@ export default function UserAvatars() {
       <span className="text-xs text-text-secondary">
         {1 + remoteUsers.length} online
       </span>
+
+      <button
+        onClick={leaveSession}
+        className="px-2 py-1 text-[10px] font-medium text-text-secondary
+          hover:text-accent-red border border-border-subtle rounded
+          hover:border-accent-red/30 transition-colors"
+      >
+        Leave
+      </button>
     </div>
   );
 }

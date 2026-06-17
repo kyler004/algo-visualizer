@@ -12,6 +12,7 @@ import useExecution from "./hooks/useExecution";
 import useCollaboration from "./hooks/useCollaboration";
 import useAuth from "./hooks/useAuth";
 import useExecutionStore from "./store/executionStore";
+import useCollabStore from "./store/collabStore";
 import useAuthStore from "./store/authStore";
 
 function CollabLayer({ slug }: { slug: string }) {
@@ -34,12 +35,11 @@ function CollabLayer({ slug }: { slug: string }) {
 }
 
 interface NavbarProps {
-  onJoinSession: (slug: string) => void;
   onToggleHistory: () => void;
   onToggleAuth: () => void;
 }
 
-function Navbar({ onJoinSession, onToggleHistory, onToggleAuth }: NavbarProps) {
+function Navbar({ onToggleHistory, onToggleAuth }: NavbarProps) {
   const { runCode } = useExecution();
   const { isLoading, error } = useExecutionStore();
   const { user, logout } = useAuthStore();
@@ -68,7 +68,7 @@ function Navbar({ onJoinSession, onToggleHistory, onToggleAuth }: NavbarProps) {
       </div>
 
       <div className="flex-1 flex justify-center">
-        <SessionControls onJoin={onJoinSession} />
+        <SessionControls />
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
@@ -144,23 +144,22 @@ export default function App() {
   usePlayback();
   useAuth();
 
-  const [activeSlug, setActiveSlug] = useState<string | null>(null);
   const [showAuth, setShowAuth] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const { slug } = useCollabStore();
   const { steps, currentStepIndex } = useExecutionStore();
   const currentStep = steps[currentStepIndex];
 
   return (
     <div className="h-screen flex flex-col bg-bg-primary font-ui overflow-hidden">
       <Navbar
-        onJoinSession={setActiveSlug}
         onToggleHistory={() => setShowHistory((v) => !v)}
         onToggleAuth={() => setShowAuth((v) => !v)}
       />
 
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-[3] overflow-hidden border-r border-border-subtle">
-          {activeSlug ? <CollabLayer slug={activeSlug} /> : <MonacoEditor />}
+          {slug ? <CollabLayer slug={slug} /> : <MonacoEditor />}
         </div>
 
         <div className="flex-[2] flex flex-col overflow-hidden">
