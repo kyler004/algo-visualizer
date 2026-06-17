@@ -34,7 +34,7 @@ export default function InstanceRenderer({
   name,
   depth = 0,
 }: Props) {
-  const { variants, currentEvent } = useStepAnimation()
+  const { currentEvent } = useStepAnimation()
   const [expanded, setExpanded] = useState(depth < MAX_DEPTH)
 
   if (isRefValue(value)) {
@@ -43,9 +43,9 @@ export default function InstanceRenderer({
         layoutId={`instance-${value.id}`}
         className="mt-1.5 px-3 py-2 rounded border border-dashed border-purple-500/40
           bg-purple-500/5 text-xs font-mono text-purple-300"
-        initial={variants.initial}
-        animate={variants.animate}
-        transition={variants.transition}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.2 }}
       >
         <span className="text-purple-400">{value.class}</span>
         <span className="text-text-secondary ml-2">@ {value.id}</span>
@@ -65,9 +65,9 @@ export default function InstanceRenderer({
       className={`mt-1.5 rounded border overflow-hidden
         ${name === undefined ? '' : ''}
         border-purple-500/30 bg-purple-500/5`}
-      initial={currentEvent === 'call' ? variants.initial : false}
-      animate={variants.animate}
-      transition={variants.transition}
+      initial={currentEvent === 'call' ? { scale: 0.92, opacity: 0 } : false}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: 'spring', stiffness: 320, damping: 26 }}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-1.5
