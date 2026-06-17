@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import useExecutionStore from '../../store/executionStore'
-import { useStepAnimation } from '../../context/StepAnimationContext'
+import { useStepAnimation } from '../../hooks/useStepAnimation'
 import type { CallFrame } from '../../types'
 import { isInstanceValue } from '../../utils/valueUtils'
 

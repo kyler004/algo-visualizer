@@ -6,7 +6,7 @@ import {
   isRefValue,
   diffAttrs,
 } from '../../../utils/valueUtils'
-import { useStepAnimation } from '../../../context/StepAnimationContext'
+import { useStepAnimation } from '../../../hooks/useStepAnimation'
 import SmartValueRenderer from './SmartValueRenderer'
 
 interface Props {

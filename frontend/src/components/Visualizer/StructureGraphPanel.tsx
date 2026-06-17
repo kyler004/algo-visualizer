@@ -113,9 +113,8 @@ function collectEdges(node: TreeNode): { x1: number; y1: number; x2: number; y2:
 export default function StructureGraphPanel() {
   const { steps, currentStepIndex, setActiveInstanceId } = useExecutionStore()
   const currentStep = steps[currentStepIndex]
-  const variables = currentStep?.variables ?? {}
-
   const graph = useMemo(() => {
+    const variables = currentStep?.variables ?? {}
     const collected = collectInstances(variables)
     const instanceMap = new Map(
       collected.filter((i) => !i.isRef).map((i) => [i.id, { class: i.class, attrs: i.attrs }]),
@@ -135,7 +134,7 @@ export default function StructureGraphPanel() {
     const svgH = Math.max(...nodes.map((n) => n.y + NODE_H), 100) + 40
 
     return { nodes, edges, svgW, svgH }
-  }, [variables])
+  }, [currentStep])
 
   if (!currentStep) {
     return (

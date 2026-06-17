@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import useExecutionStore from '../../store/executionStore'
 import { hasStructureFields } from '../../utils/valueUtils'
 import type { VisualizerTab } from '../../types'
@@ -16,14 +16,18 @@ const TABS: { id: VisualizerTab; label: string }[] = [
 
 export default function VisualizerTabs() {
   const { steps, currentStepIndex, visualizerTab, setVisualizerTab } = useExecutionStore()
-  const currentStep = steps[currentStepIndex]
-  const variables = currentStep?.variables ?? {}
+  const prevStepsLen = useRef(0)
 
   useEffect(() => {
-    if (hasStructureFields(variables) && visualizerTab === 'variables') {
+    const variables = steps[currentStepIndex]?.variables ?? {}
+    const justLoaded = steps.length > 0 && prevStepsLen.current === 0
+
+    if (justLoaded && hasStructureFields(variables)) {
       setVisualizerTab('structure')
     }
-  }, [currentStepIndex, steps.length])
+
+    prevStepsLen.current = steps.length
+  }, [steps, currentStepIndex, setVisualizerTab])
 
   return (
     <div className="flex flex-col h-full overflow-hidden">

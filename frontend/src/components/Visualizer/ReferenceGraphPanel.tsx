@@ -112,12 +112,10 @@ function buildFlowData(variables: Record<string, unknown>): {
 export default function ReferenceGraphPanel() {
   const { steps, currentStepIndex } = useExecutionStore()
   const currentStep = steps[currentStepIndex]
-  const variables = currentStep?.variables ?? {}
-
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(
-    () => buildFlowData(variables),
-    [variables],
-  )
+  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
+    const variables = currentStep?.variables ?? {}
+    return buildFlowData(variables)
+  }, [currentStep])
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
