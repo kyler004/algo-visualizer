@@ -5,6 +5,8 @@ import useExecutionStore from "../store/executionStore";
 import type { WsMessage, CollabUser } from "../types";
 import { nanoid } from "nanoid";
 
+const CURSOR_THROTTLE_MS = 80;
+
 // Generate a persistent local user identity for this browser session
 function getOrCreateLocalUser(roomUserCount: number): CollabUser {
   const stored = sessionStorage.getItem("collab_user");
@@ -21,6 +23,11 @@ function getOrCreateLocalUser(roomUserCount: number): CollabUser {
 
 export default function useCollaboration(slug: string) {
   const wsRef = useRef<CollabWebSocket | null>(null);
+  const suppressStepBroadcastRef = useRef(false);
+  const cursorThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingCursorRef = useRef<{ lineNumber: number; column: number } | null>(
+    null,
+  );
 
   const {
     setSlug,
@@ -28,6 +35,7 @@ export default function useCollaboration(slug: string) {
     setLocalUser,
     addRemoteUser,
     removeRemoteUser,
+    setRemoteUsers,
     updateCursor,
     removeCursor,
     remoteUsers,
@@ -40,11 +48,19 @@ export default function useCollaboration(slug: string) {
   const handleMessage = useCallback(
     (message: WsMessage) => {
       const { type, payload, user } = message;
+      const localId = useCollabStore.getState().localUser?.id;
 
       switch (type) {
+        case "room_state": {
+          const users = (payload.users as CollabUser[]) ?? [];
+          setRemoteUsers(
+            localId ? users.filter((u) => u.id !== localId) : users,
+          );
+          break;
+        }
+
         case "user_join":
-          // Don't add ourselves to the remote users list
-          if (user.id !== useCollabStore.getState().localUser?.id) {
+          if (user.id !== localId) {
             addRemoteUser(user);
           }
           break;
@@ -55,14 +71,13 @@ export default function useCollaboration(slug: string) {
           break;
 
         case "code_change":
-          // Only apply remote code changes — not our own echoed back
-          if (user.id !== useCollabStore.getState().localUser?.id) {
+          if (user.id !== localId) {
             setCode(payload.code as string);
           }
           break;
 
         case "cursor_change":
-          if (user.id !== useCollabStore.getState().localUser?.id) {
+          if (user.id !== localId) {
             updateCursor({
               user,
               position: {
@@ -74,8 +89,12 @@ export default function useCollaboration(slug: string) {
           break;
 
         case "step_change":
-          if (user.id !== useCollabStore.getState().localUser?.id) {
+          if (user.id !== localId) {
+            suppressStepBroadcastRef.current = true;
             goToStep(payload.stepIndex as number);
+            queueMicrotask(() => {
+              suppressStepBroadcastRef.current = false;
+            });
           }
           break;
       }
@@ -84,11 +103,19 @@ export default function useCollaboration(slug: string) {
       addRemoteUser,
       removeRemoteUser,
       removeCursor,
+      setRemoteUsers,
       setCode,
       updateCursor,
       goToStep,
     ],
   );
+
+  const flushCursor = useCallback(() => {
+    if (!pendingCursorRef.current) return;
+    const { lineNumber, column } = pendingCursorRef.current;
+    pendingCursorRef.current = null;
+    wsRef.current?.send("cursor_change", { lineNumber, column });
+  }, []);
 
   // ── Connect on mount, disconnect on unmount ───────────────────
   useEffect(() => {
@@ -102,35 +129,58 @@ export default function useCollaboration(slug: string) {
       user: localUser,
       onMessage: handleMessage,
       onOpen: () => {
+        useCollabStore.setState({ remoteUsers: [], remoteCursors: [] });
         setConnected(true);
-        // Seed room with current editor code so late joiners can hydrate via REST
         const code = useExecutionStore.getState().code;
         wsRef.current?.send("code_change", { code });
       },
-      onClose: () => setConnected(false),
+      onClose: () => {
+        setConnected(false);
+        useCollabStore.setState({ remoteCursors: [] });
+      },
     });
 
     wsRef.current.connect();
 
     return () => {
+      if (cursorThrottleRef.current) {
+        clearTimeout(cursorThrottleRef.current);
+        cursorThrottleRef.current = null;
+      }
+      flushCursor();
       wsRef.current?.disconnect();
       reset();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug]); // Only re-run if the room slug changes
+  }, [slug]);
 
-  // ── Public API: functions components call to broadcast events ──
   const broadcastCode = useCallback((code: string) => {
     wsRef.current?.send("code_change", { code });
   }, []);
 
-  const broadcastCursor = useCallback((lineNumber: number, column: number) => {
-    wsRef.current?.send("cursor_change", { lineNumber, column });
-  }, []);
+  const broadcastCursor = useCallback(
+    (lineNumber: number, column: number) => {
+      pendingCursorRef.current = { lineNumber, column };
+
+      if (cursorThrottleRef.current) return;
+
+      flushCursor();
+      cursorThrottleRef.current = setTimeout(() => {
+        cursorThrottleRef.current = null;
+        flushCursor();
+      }, CURSOR_THROTTLE_MS);
+    },
+    [flushCursor],
+  );
 
   const broadcastStepChange = useCallback((stepIndex: number) => {
     wsRef.current?.send("step_change", { stepIndex });
   }, []);
 
-  return { broadcastCode, broadcastCursor, broadcastStepChange };
+  return {
+    broadcastCode,
+    broadcastCursor,
+    broadcastStepChange,
+    suppressStepBroadcastRef,
+  };
 }
