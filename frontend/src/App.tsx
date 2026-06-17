@@ -16,15 +16,19 @@ import useCollabStore from "./store/collabStore";
 import useAuthStore from "./store/authStore";
 
 function CollabLayer({ slug }: { slug: string }) {
-  const { broadcastCode, broadcastCursor, broadcastStepChange } =
-    useCollaboration(slug);
+  const {
+    broadcastCode,
+    broadcastCursor,
+    broadcastStepChange,
+    suppressStepBroadcastRef,
+  } = useCollaboration(slug);
   const currentStepIndex = useExecutionStore((s) => s.currentStepIndex);
 
   useEffect(() => {
-    if (currentStepIndex >= 0) {
+    if (currentStepIndex >= 0 && !suppressStepBroadcastRef.current) {
       broadcastStepChange(currentStepIndex);
     }
-  }, [currentStepIndex, broadcastStepChange]);
+  }, [currentStepIndex, broadcastStepChange, suppressStepBroadcastRef]);
 
   return (
     <MonacoEditor
