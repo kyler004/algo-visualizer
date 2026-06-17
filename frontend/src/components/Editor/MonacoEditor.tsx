@@ -3,32 +3,12 @@ import Editor, { type BeforeMount, type OnMount } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 import useExecutionStore from "../../store/executionStore";
 import useCollabStore from "../../store/collabStore";
+import useThemeStore from "../../store/themeStore";
+import { registerMonacoThemes } from "../../themes/monaco";
+import { DEFAULT_THEME_ID } from "../../themes/definitions";
 import CursorOverlay from "../Collaboration/CursorOverlay";
 
-const THEME_NAME = "algo-dark";
-
-const MONACO_THEME: editor.IStandaloneThemeData = {
-  base: "vs-dark",
-  inherit: true,
-  rules: [
-    { token: "comment", foreground: "4a5568", fontStyle: "italic" },
-    { token: "keyword", foreground: "4d9fff" },
-    { token: "string", foreground: "f6ad55" },
-    { token: "number", foreground: "f6e05e" },
-  ],
-  colors: {
-    "editor.background": "#111118",
-    "editor.foreground": "#e2e8f0",
-    "editor.lineHighlightBackground": "#1a1a25",
-    "editor.selectionBackground": "#2d4a6e60",
-    "editorCursor.foreground": "#4d9fff",
-    "editorLineNumber.foreground": "#2d3748",
-    "editorLineNumber.activeForeground": "#4d9fff",
-  },
-};
-
 interface Props {
-  // Optional: passed in when collab is active
   onCodeChange?: (code: string) => void;
   onCursorChange?: (line: number, column: number) => void;
 }
@@ -37,6 +17,7 @@ export default function MonacoEditor({ onCodeChange, onCursorChange }: Props) {
   const { code, setCode, language, steps, currentStepIndex } =
     useExecutionStore();
   const { slug } = useCollabStore();
+  const themeId = useThemeStore((s) => s.themeId);
 
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Parameters<BeforeMount>[0] | null>(null);
@@ -45,14 +26,13 @@ export default function MonacoEditor({ onCodeChange, onCursorChange }: Props) {
   const currentStep = steps[currentStepIndex];
 
   const handleBeforeMount: BeforeMount = (monaco) => {
-    monaco.editor.defineTheme(THEME_NAME, MONACO_THEME);
+    registerMonacoThemes(monaco);
     monacoRef.current = monaco;
   };
 
   const handleMount: OnMount = (editorInstance) => {
     editorRef.current = editorInstance;
 
-    // Broadcast cursor position whenever it changes
     if (onCursorChange) {
       editorInstance.onDidChangeCursorPosition((e) => {
         onCursorChange(e.position.lineNumber, e.position.column);
@@ -60,7 +40,11 @@ export default function MonacoEditor({ onCodeChange, onCursorChange }: Props) {
     }
   };
 
-  // Highlight currently executing line
+  useEffect(() => {
+    if (!monacoRef.current) return;
+    monacoRef.current.editor.setTheme(themeId);
+  }, [themeId]);
+
   useEffect(() => {
     if (!editorRef.current || !monacoRef.current) return;
     if (!currentStep) {
@@ -89,7 +73,7 @@ export default function MonacoEditor({ onCodeChange, onCursorChange }: Props) {
   const handleChange = (value: string | undefined) => {
     const newCode = value ?? "";
     setCode(newCode);
-    onCodeChange?.(newCode); // Broadcast if in a collab session
+    onCodeChange?.(newCode);
   };
 
   return (
@@ -98,7 +82,7 @@ export default function MonacoEditor({ onCodeChange, onCursorChange }: Props) {
         height="100%"
         language={language}
         value={code}
-        theme={THEME_NAME}
+        theme={themeId ?? DEFAULT_THEME_ID}
         beforeMount={handleBeforeMount}
         onMount={handleMount}
         onChange={handleChange}
@@ -116,7 +100,6 @@ export default function MonacoEditor({ onCodeChange, onCursorChange }: Props) {
         }}
       />
 
-      {/* Remote cursor overlay — only active during collab sessions */}
       {slug && (
         <CursorOverlay
           editorInstance={editorRef.current}
