@@ -15,6 +15,8 @@ export type {
 
 export type VisualizerTab = 'variables' | 'structure' | 'graph'
 
+export type { ThemeId } from '../themes/definitions'
+
 // The vents our tracer emits
 export type EventType = "line" | "call" | "return" | "exception" | "error";
 

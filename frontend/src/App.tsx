@@ -11,6 +11,7 @@ import usePlayback from "./hooks/usePlayback";
 import useExecution from "./hooks/useExecution";
 import useCollaboration from "./hooks/useCollaboration";
 import useAuth from "./hooks/useAuth";
+import useTheme from "./hooks/useTheme";
 import useExecutionStore from "./store/executionStore";
 import useCollabStore from "./store/collabStore";
 import useAuthStore from "./store/authStore";
@@ -147,6 +148,7 @@ function Navbar({ onToggleHistory, onToggleAuth }: NavbarProps) {
 export default function App() {
   usePlayback();
   useAuth();
+  useTheme();
 
   const [showAuth, setShowAuth] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
