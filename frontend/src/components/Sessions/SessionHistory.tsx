@@ -32,10 +32,6 @@ export default function SessionHistory({ isOpen, onClose }: Props) {
 
   const { code, language, setCode } = useExecutionStore();
 
-  useEffect(() => {
-    if (isOpen) fetchSessions();
-  }, [isOpen]);
-
   const fetchSessions = async () => {
     setIsLoading(true);
     try {
@@ -44,6 +40,23 @@ export default function SessionHistory({ isOpen, onClose }: Props) {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    void (async () => {
+      setIsLoading(true);
+      try {
+        const data = await getSavedSessions();
+        if (active) setSessions(data);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [isOpen]);
 
   const handleSave = async () => {
     if (!saveTitle.trim()) return;

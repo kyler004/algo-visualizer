@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import Editor, { type BeforeMount, type OnMount } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 import useExecutionStore from "../../store/executionStore";
@@ -22,16 +22,20 @@ export default function MonacoEditor({ onCodeChange, onCursorChange }: Props) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Parameters<BeforeMount>[0] | null>(null);
   const decorationsRef = useRef<string[]>([]);
+  const [mountedEditor, setMountedEditor] = useState<editor.IStandaloneCodeEditor | null>(null);
+  const [mountedMonaco, setMountedMonaco] = useState<Parameters<BeforeMount>[0] | null>(null);
 
   const currentStep = steps[currentStepIndex];
 
   const handleBeforeMount: BeforeMount = (monaco) => {
     registerMonacoThemes(monaco);
     monacoRef.current = monaco;
+    setMountedMonaco(monaco);
   };
 
   const handleMount: OnMount = (editorInstance) => {
     editorRef.current = editorInstance;
+    setMountedEditor(editorInstance);
 
     if (onCursorChange) {
       editorInstance.onDidChangeCursorPosition((e) => {
@@ -100,10 +104,10 @@ export default function MonacoEditor({ onCodeChange, onCursorChange }: Props) {
         }}
       />
 
-      {slug && (
+      {slug && mountedEditor && mountedMonaco && (
         <CursorOverlay
-          editorInstance={editorRef.current}
-          monacoInstance={monacoRef.current}
+          editorInstance={mountedEditor}
+          monacoInstance={mountedMonaco}
         />
       )}
     </div>
