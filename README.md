@@ -1,10 +1,9 @@
 # AlgoViz — Algorithm Visualizer
 
-A real-time, step-by-step algorithm visualizer with collaborative editing.
-Write Python code in a Monaco editor, execute it on a sandboxed Django backend, and watch variables, the call stack, and output evolve at each execution step.
+A full-stack, step-by-step algorithm visualizer with real-time collaborative editing. Write Python in a Monaco editor, execute it on a sandboxed Django backend, and watch variables, the call stack, and output evolve at each execution step — alone or with others in a shared room.
 
 ![Python](https://img.shields.io/badge/Python-3.12-blue)
-![Django](https://img.shields.io/badge/Django-5.x-green)
+![Django](https://img.shields.io/badge/Django-6.x-green)
 ![React](https://img.shields.io/badge/React-19-61DAFB)
 ![Vite](https://img.shields.io/badge/Vite-8-646CFF)
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-4-38BDF8)
@@ -13,13 +12,63 @@ Write Python code in a Monaco editor, execute it on a sandboxed Django backend, 
 
 ## Overview
 
-AlgoViz is a full-stack web application that lets you:
+AlgoViz combines a Python execution tracer with a live code editor and visual debugger. The backend captures every line, call, return, and exception using `sys.settrace`, then streams structured step snapshots to the frontend. The UI renders variables, the call stack, and accumulated output, with animated playback controls to scrub through execution.
 
-- **Write & edit** Python code in a browser-based Monaco editor (syntax highlighting, theming, ligatures)
-- **Execute** the code server-side with a custom `sys.settrace`-based tracer that captures every line, call, return, and exception event
-- **Step through** execution snapshots — see variables, the call stack, and console output at each point in time
-- **Play back** execution automatically at configurable speeds (0.5×, 1×, 2×, 4×)
-- **Collaborate** in real-time — share a room code and see each other's cursors and code changes live via WebSockets
+Beyond solo use, AlgoViz supports **anonymous real-time collaboration**: share an 8-character room code, edit code together, see each other's cursors, and stay in sync during step-by-step playback.
+
+### What you can do
+
+| Area | Capabilities |
+|------|-------------|
+| **Editor** | Monaco-based Python editor with syntax highlighting, ligatures, and current-line execution highlight |
+| **Execution** | Server-side sandboxed run; step snapshots with variables, call stack, and output |
+| **Playback** | Prev / Play / Next controls, scrubber, and speed presets (0.5×–4×) |
+| **Collaboration** | Create or join rooms, live code sync, remote cursors, presence avatars, synced playback step |
+| **Accounts** | Register, sign in (JWT), and save named code snippets to a personal library |
+| **Theming** | Multiple editor/UI themes with a settings panel |
+
+---
+
+## Real-Time Collaboration
+
+Collaboration is room-based and does not require an account. Any user with the room code can join.
+
+### How it works
+
+1. **Create a room** — Click **New Session** in the navbar. The app calls `POST /api/sessions/` and receives an 8-character slug (e.g. `x7kp2m4q`).
+2. **Share the code** — Other users enter the slug and click **Join**.
+3. **Connect** — The frontend opens a WebSocket to `ws://…/ws/collab/<slug>/` and joins a Django Channels group backed by Redis.
+4. **Collaborate** — Code edits, cursor positions, and playback steps are broadcast to everyone in the room.
+
+When you **Leave**, the WebSocket closes, your avatar disappears for others, and the editor returns to solo mode.
+
+### Collaboration features
+
+- **Live code sync** — Edits broadcast instantly; the server persists the latest code to the database on every change so late joiners can hydrate via REST.
+- **Code hydration on join** — Joining a room loads the saved code and language from `GET /api/sessions/<slug>/`. The room creator's starting code is seeded over WebSocket when they connect.
+- **Presence avatars** — Each user gets a random name, color, and avatar in the navbar. A green/red dot shows WebSocket connection status.
+- **Room roster (`room_state`)** — When you join, the server sends a snapshot of users already in the room (stored in a Redis hash). Late joiners see existing participants immediately.
+- **Remote cursors** — Other users' cursor positions appear in the editor with colored labels. Outgoing cursor updates are throttled (~80 ms) to reduce WebSocket traffic.
+- **Synced playback** — Scrubbing the step slider or using Play/Pause broadcasts the current step index to the room. Remote step updates are applied without echoing back (no ping-pong loops).
+- **Auto-reconnect** — Dropped connections retry after 3 seconds; presence is cleared and rebuilt from a fresh `room_state` on reconnect.
+- **Leave session** — Explicit **Leave** button in the navbar returns you to solo editing and notifies the room.
+
+### Collaboration architecture
+
+```
+┌──────────────┐     REST (create/join)      ┌─────────────────────┐
+│   Browser    │ ──────────────────────────► │  Django REST API    │
+│  (React)     │                             │  CollabSession DB   │
+└──────┬───────┘                             └─────────────────────┘
+       │
+       │  WebSocket  ws/collab/<slug>/
+       ▼
+┌──────────────┐   pub/sub    ┌───────────────┐   roster   ┌───────┐
+│ CollabConsumer│ ◄──────────► │ Redis Channels │ ◄────────► │ Redis │
+└──────────────┘               └───────────────┘            └───────┘
+```
+
+User identity is client-generated (`sessionStorage`) — no login required for collab rooms. Saved Sessions (personal code library) are a separate, authenticated feature.
 
 ---
 
@@ -46,7 +95,7 @@ AlgoViz is a full-stack web application that lets you:
 └─────────────────────────────┘
 ```
 
-### Frontend → Backend Proxy
+### Frontend → Backend proxy
 
 During development the Vite dev server proxies requests to Django so both servers can run on different ports without CORS issues:
 
@@ -56,6 +105,8 @@ During development the Vite dev server proxies requests to Django so both server
 | `/ws/*`       | `ws://localhost:8000`     | WebSocket|
 
 This is configured in [`frontend/vite.config.ts`](frontend/vite.config.ts).
+
+> **Important:** Collaboration requires an **ASGI server** (daphne). `python manage.py runserver` serves HTTP but does **not** handle WebSockets — you will get connection errors. Always use daphne when testing collab features.
 
 ---
 
@@ -79,10 +130,12 @@ This is configured in [`frontend/vite.config.ts`](frontend/vite.config.ts).
 
 | Library                | Purpose                                     |
 |------------------------|---------------------------------------------|
-| Django 5               | Web framework                               |
+| Django 6               | Web framework                               |
 | Django REST Framework  | RESTful API endpoints                       |
 | Django Channels        | WebSocket support (ASGI)                    |
-| channels-redis         | Redis-backed channel layer for pub/sub      |
+| channels-redis         | Redis-backed channel layer & room roster    |
+| daphne                 | ASGI server for HTTP + WebSocket            |
+| djangorestframework-simplejwt | JWT authentication                   |
 | python-dotenv          | Environment variable management             |
 
 ---
@@ -104,51 +157,45 @@ algo-visualizer/
 │   │   ├── runner.py         # Sandboxed code runner
 │   │   ├── views.py          # POST /api/execute/
 │   │   └── urls.py
-│   ├── sessions_manager/     # Collaboration app
-│   │   ├── consumers.py      # WebSocket consumer (Django Channels)
-│   │   ├── models.py         # CollabSession model
+│   ├── sessions_manager/     # Collaboration & saved sessions
+│   │   ├── consumers.py      # WebSocket consumer + Redis room roster
+│   │   ├── models.py         # CollabSession, SavedSession
 │   │   ├── routing.py        # WebSocket URL patterns
-│   │   ├── views.py          # POST /api/sessions/, GET /api/sessions/<slug>/
+│   │   ├── views.py          # Session REST endpoints
 │   │   └── urls.py
+│   ├── accounts/             # User registration & JWT auth
 │   ├── .env                  # Environment variables (not committed in prod)
 │   └── manage.py
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx           # Root component — layout, navbar, panels
-│   │   ├── main.tsx          # React entrypoint
-│   │   ├── index.css         # Tailwind + custom theme tokens + global styles
+│   │   ├── App.tsx           # Root layout, CollabLayer, navbar
 │   │   ├── components/
-│   │   │   ├── Editor/
-│   │   │   │   └── MonacoEditor.tsx        # Monaco wrapper with line highlighting
-│   │   │   ├── Visualizer/
-│   │   │   │   ├── VariablesPanel.tsx      # Current scope variables
-│   │   │   │   ├── CallStackPanel.tsx      # Call stack frames
-│   │   │   │   ├── OutputPanel.tsx         # Console output accumulation
-│   │   │   │   └── renderers/             # Smart value renderers (arrays, objects, primitives)
-│   │   │   ├── Controls/
-│   │   │   │   └── StepControls.tsx        # Prev/Play/Next, scrubber, speed selector
-│   │   │   └── Collaboration/
-│   │   │       ├── SessionControls.tsx     # Create/join collab sessions
-│   │   │       ├── CursorOverlay.tsx       # Remote cursor decorations in Monaco
-│   │   │       └── UserAvatars.tsx         # User presence indicators
+│   │   │   ├── Editor/       # MonacoEditor + line highlighting
+│   │   │   ├── Visualizer/   # Variables, call stack, output tabs
+│   │   │   ├── Controls/     # StepControls (playback)
+│   │   │   ├── Collaboration/# SessionControls, UserAvatars, CursorOverlay
+│   │   │   ├── Auth/         # AuthModal
+│   │   │   ├── Sessions/     # SessionHistory (saved snippets)
+│   │   │   └── Theme/        # Theme picker & settings
 │   │   ├── hooks/
-│   │   │   ├── useExecution.ts   # Runs code via API, handles errors
-│   │   │   ├── usePlayback.ts    # Auto-step timer for playback mode
-│   │   │   └── useCollaboration.ts  # WebSocket lifecycle & message handling
+│   │   │   ├── useExecution.ts
+│   │   │   ├── usePlayback.ts
+│   │   │   ├── useCollaboration.ts  # WebSocket lifecycle & sync
+│   │   │   ├── useAuth.ts
+│   │   │   └── useTheme.ts
 │   │   ├── services/
-│   │   │   ├── api.ts            # Axios instance + API functions
-│   │   │   └── websocket.ts      # WebSocket wrapper with auto-reconnect
+│   │   │   ├── api.ts
+│   │   │   └── websocket.ts  # Auto-reconnect WebSocket client
 │   │   ├── store/
-│   │   │   ├── executionStore.ts  # Editor state, steps, playback (Zustand)
-│   │   │   └── collabStore.ts     # Collab users, cursors, room state (Zustand)
+│   │   │   ├── executionStore.ts
+│   │   │   ├── collabStore.ts
+│   │   │   ├── authStore.ts
+│   │   │   └── themeStore.ts
 │   │   └── types/
-│   │       └── index.ts          # Shared TypeScript interfaces
-│   ├── vite.config.ts            # Vite config with proxy & Tailwind plugin
-│   ├── package.json
-│   └── tsconfig.json
+│   └── vite.config.ts
 │
-└── README.md                     # ← You are here
+└── README.md
 ```
 
 ---
@@ -159,10 +206,10 @@ algo-visualizer/
 
 - **Node.js** ≥ 20 and **npm**
 - **Python** ≥ 3.12 and **pip**
-- **Redis** (for WebSocket channel layer)
+- **Redis** (required for collaboration — channel layer and room roster)
 - **PostgreSQL** (or swap to SQLite for local dev — see below)
 
-### 1. Backend Setup
+### 1. Backend setup
 
 ```bash
 cd backend
@@ -172,7 +219,7 @@ python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 
 # Install dependencies
-pip install django djangorestframework django-cors-headers channels channels-redis python-dotenv
+pip install django djangorestframework django-cors-headers channels channels-redis daphne python-dotenv psycopg2-binary djangorestframework-simplejwt
 
 # Configure environment
 cp .env.example .env
@@ -181,7 +228,7 @@ cp .env.example .env
 # Run migrations
 python manage.py migrate
 
-# Start the ASGI server (needed for WebSocket support)
+# Start the ASGI server (required for WebSocket / collaboration)
 daphne -b 127.0.0.1 -p 8000 config.asgi:application
 ```
 
@@ -196,21 +243,20 @@ daphne -b 127.0.0.1 -p 8000 config.asgi:application
 > }
 > ```
 
-### 2. Frontend Setup
+### 2. Frontend setup
 
 ```bash
 cd frontend
 
-# Install dependencies
 npm install
 
-# Start the dev server (proxies /api and /ws to Django on port 8000)
+# Proxies /api and /ws to Django on port 8000
 npm run dev
 ```
 
 The app will be available at **http://localhost:5173**.
 
-### 3. Redis (for Collaboration)
+### 3. Redis (for collaboration)
 
 ```bash
 # macOS
@@ -223,33 +269,62 @@ sudo apt install redis-server && sudo systemctl start redis
 docker run -d -p 6379:6379 redis:alpine
 ```
 
-> If you only need code execution and don't need collaboration, you can
-> temporarily switch the channel layer to `InMemoryChannelLayer` in settings.
+> If you only need code execution and not collaboration, you can temporarily switch the channel layer to `InMemoryChannelLayer` in settings. Room presence and multi-process pub/sub will not work in that mode.
 
 ---
 
 ## API Endpoints
 
-### Code Execution
+### Code execution
 
 | Method | Endpoint          | Body                                         | Response                                |
 |--------|-------------------|----------------------------------------------|-----------------------------------------|
 | POST   | `/api/execute/`   | `{ "code": "...", "language": "python" }`    | `{ "success": bool, "total_steps": N, "steps": [...] }` |
 
-### Collaboration Sessions
+### Collaboration sessions (anonymous)
 
 | Method | Endpoint                  | Body | Response                         |
 |--------|---------------------------|------|----------------------------------|
 | POST   | `/api/sessions/`          | —    | `{ "slug": "x7kp2m4q" }`        |
 | GET    | `/api/sessions/<slug>/`   | —    | `{ "slug", "code", "language" }` |
 
+### Saved sessions (authenticated)
+
+| Method | Endpoint                       | Description              |
+|--------|--------------------------------|--------------------------|
+| GET    | `/api/sessions/saved/`         | List user's saved snippets |
+| POST   | `/api/sessions/saved/`         | Save a new snippet       |
+| GET    | `/api/sessions/saved/<id>/`    | Load full code           |
+| PATCH  | `/api/sessions/saved/<id>/`    | Update title             |
+| DELETE | `/api/sessions/saved/<id>/`    | Delete snippet           |
+
+### Authentication
+
+| Method | Endpoint              | Description                    |
+|--------|-----------------------|--------------------------------|
+| POST   | `/api/auth/register/` | Create account                 |
+| POST   | `/api/auth/login/`    | Returns `{ access, refresh }`  |
+| POST   | `/api/auth/refresh/`  | Refresh access token           |
+| GET    | `/api/auth/profile/`  | Current user profile           |
+
 ### WebSocket
 
-| Endpoint                          | Purpose                               |
-|-----------------------------------|---------------------------------------|
-| `ws://localhost:8000/ws/collab/<slug>/` | Real-time code & cursor sync     |
+| Endpoint | Purpose |
+|----------|---------|
+| `ws://localhost:8000/ws/collab/<slug>/` | Real-time collaboration channel |
 
-**Message types:** `user_join`, `user_leave`, `code_change`, `cursor_change`, `step_change`
+**Message types:**
+
+| Type | Direction | Payload | Description |
+|------|-----------|---------|-------------|
+| `user_join` | Client → Server → Room | — | Announce presence; triggers roster update |
+| `room_state` | Server → Joiner | `{ users: CollabUser[] }` | Snapshot of users already in the room |
+| `user_leave` | Server → Room | `{ user_id }` | User disconnected |
+| `code_change` | Client → Server → Room | `{ code }` | Full editor sync; persisted to DB |
+| `cursor_change` | Client → Server → Room | `{ lineNumber, column }` | Remote cursor position |
+| `step_change` | Client → Server → Room | `{ stepIndex }` | Playback scrubber sync |
+
+Every client message includes a `user` object: `{ id, name, color }`.
 
 ---
 
@@ -268,6 +343,15 @@ cd frontend && npm run build
 # Backend — run tests
 cd backend && python manage.py test
 ```
+
+### Testing collaboration locally
+
+1. Start Redis, then **daphne** (not `runserver`).
+2. Start the Vite dev server.
+3. Open two browser tabs (or one normal + one incognito).
+4. Tab A: **New Session** → note the room code.
+5. Tab B: enter the code → **Join**.
+6. Verify avatars, code sync, cursors, step scrubber sync, and **Leave**.
 
 ---
 
