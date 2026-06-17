@@ -8,7 +8,6 @@ import {
   isListValue,
   isDictValue,
   isReprValue,
-  isPrimitiveValue,
   valuesEqual,
 } from '../../../utils/valueUtils'
 import type { SerializedValue } from '../../../types/value'

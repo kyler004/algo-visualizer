@@ -5,8 +5,8 @@ import type {
   RefValue,
   CollectedInstance,
   ReferenceEdge,
-  REFERENCE_FIELDS,
 } from '../types/value'
+import { REFERENCE_FIELDS } from '../types/value'
 
 export function isKindedValue(v: unknown): v is KindedValue {
   return (

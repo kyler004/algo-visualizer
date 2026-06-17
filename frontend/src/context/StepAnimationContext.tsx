@@ -1,14 +1,8 @@
 import { createContext, useContext, type ReactNode } from 'react'
+import type { Variants } from 'framer-motion'
 import type { EventType } from '../types'
 
-export interface StepAnimationVariants {
-  initial: Record<string, number | string>
-  animate: Record<string, number | string>
-  exit?: Record<string, number | string>
-  transition?: Record<string, unknown>
-}
-
-const EVENT_VARIANTS: Record<EventType, StepAnimationVariants> = {
+const EVENT_VARIANTS: Record<EventType, Variants> = {
   call: {
     initial: { scale: 0.92, opacity: 0 },
     animate: { scale: 1, opacity: 1 },
@@ -38,7 +32,7 @@ const EVENT_VARIANTS: Record<EventType, StepAnimationVariants> = {
 
 interface StepAnimationContextValue {
   currentEvent: EventType | null
-  variants: StepAnimationVariants
+  variants: Variants
 }
 
 const StepAnimationContext = createContext<StepAnimationContextValue>({

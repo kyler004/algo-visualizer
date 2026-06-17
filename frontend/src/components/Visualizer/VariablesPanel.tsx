@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import useExecutionStore from '../../store/executionStore'
 import SmartValueRenderer from './renderers/SmartValueRenderer'
-import { getTypeLabel } from '../../utils/valueUtils'
+import { getTypeLabel, isInstanceValue } from '../../utils/valueUtils'
 
 const TYPE_COLORS: Record<string, string> = {
   number: 'text-yellow-400',
@@ -41,11 +41,7 @@ export default function VariablesPanel() {
               const type = getTypeLabel(value)
               const isComplex = ['list', 'dict', 'instance'].includes(type)
               const isActiveInstance =
-                typeof value === 'object' &&
-                value !== null &&
-                '_kind' in value &&
-                (value as { _kind: string; id?: string })._kind === 'instance' &&
-                (value as { id: string }).id === activeInstanceId
+                isInstanceValue(value) && value.id === activeInstanceId
 
               return (
                 <motion.div
@@ -56,7 +52,7 @@ export default function VariablesPanel() {
                   transition={{ duration: 0.15 }}
                   className={`px-3 py-2.5 rounded bg-bg-hover
                     ${isActiveInstance ? 'ring-1 ring-purple-500/40' : ''}`}
-                  layoutId={isActiveInstance ? `var-${(value as { id: string }).id}` : undefined}
+                  layoutId={isActiveInstance ? `var-${value.id}` : undefined}
                 >
                   <div className={`flex items-center gap-2
                     ${isComplex ? 'mb-1' : 'justify-between'}`}>

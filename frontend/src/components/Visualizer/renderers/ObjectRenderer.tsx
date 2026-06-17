@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import SmartValueRenderer from './SmartValueRenderer'
 import { unwrapDict, diffAttrs } from '../../../utils/valueUtils'
+import type { SerializedValue } from '../../../types/value'
 
 interface Props {
   value: unknown
@@ -14,11 +15,9 @@ const MAX_VISIBLE_DEPTH = 2
 export default function ObjectRenderer({ value, prevValue, depth = 0 }: Props) {
   const [expanded, setExpanded] = useState(depth < MAX_VISIBLE_DEPTH)
   const entries = Object.entries(unwrapDict(value))
-  const prevEntries = unwrapDict(prevValue)
-  const attrDiff = diffAttrs(
-    Object.fromEntries(entries) as Record<string, unknown> as Record<string, import('../../../types/value').SerializedValue>,
-    Object.fromEntries(Object.entries(prevEntries)) as Record<string, import('../../../types/value').SerializedValue>,
-  )
+  const prevEntries = unwrapDict(prevValue) as Record<string, SerializedValue>
+  const currentEntries = Object.fromEntries(entries) as Record<string, SerializedValue>
+  const attrDiff = diffAttrs(currentEntries, prevEntries)
 
   if (entries.length === 0) {
     return <span className="font-mono text-sm text-text-secondary">{'{}'}</span>
