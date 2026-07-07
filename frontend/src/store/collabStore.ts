@@ -20,6 +20,8 @@ interface CollabState {
   // ── Room ──────────────────────────────────────────────────
   slug: string | null;
   isConnected: boolean;
+  /** True if this client created the room (used to seed initial code) */
+  isHost: boolean;
   localUser: CollabUser | null;
 
   // ── Users ─────────────────────────────────────────────────
@@ -35,7 +37,7 @@ interface CollabState {
   updateCursor: (cursor: RemoteCursor) => void;
   removeCursor: (userId: string) => void;
   setRemoteUsers: (users: CollabUser[]) => void;
-  joinSession: (slug: string) => void;
+  joinSession: (slug: string, isHost?: boolean) => void;
   leaveSession: () => void;
   reset: () => void;
 }
@@ -43,6 +45,7 @@ interface CollabState {
 const useCollabStore = create<CollabState>()((set) => ({
   slug: null,
   isConnected: false,
+  isHost: false,
   localUser: null,
   remoteUsers: [],
   remoteCursors: [],
@@ -77,13 +80,14 @@ const useCollabStore = create<CollabState>()((set) => ({
 
   setRemoteUsers: (users) => set({ remoteUsers: users }),
 
-  joinSession: (slug) =>
-    set({ slug, remoteUsers: [], remoteCursors: [] }),
+  joinSession: (slug, isHost = false) =>
+    set({ slug, isHost, remoteUsers: [], remoteCursors: [] }),
 
   leaveSession: () =>
     set({
       slug: null,
       isConnected: false,
+      isHost: false,
       localUser: null,
       remoteUsers: [],
       remoteCursors: [],
@@ -93,6 +97,7 @@ const useCollabStore = create<CollabState>()((set) => ({
     set({
       slug: null,
       isConnected: false,
+      isHost: false,
       localUser: null,
       remoteUsers: [],
       remoteCursors: [],

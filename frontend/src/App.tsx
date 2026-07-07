@@ -23,15 +23,20 @@ function CollabLayer({ slug }: { slug: string }) {
     broadcastCode,
     broadcastCursor,
     broadcastStepChange,
-    suppressStepBroadcastRef,
+    suppressedRemoteStepRef,
   } = useCollaboration(slug);
   const currentStepIndex = useExecutionStore((s) => s.currentStepIndex);
 
   useEffect(() => {
-    if (currentStepIndex >= 0 && !suppressStepBroadcastRef.current) {
-      broadcastStepChange(currentStepIndex);
+    if (currentStepIndex < 0) return;
+    // Step applied from a remote user — consume the marker instead of
+    // echoing the same step back to the room.
+    if (suppressedRemoteStepRef.current === currentStepIndex) {
+      suppressedRemoteStepRef.current = null;
+      return;
     }
-  }, [currentStepIndex, broadcastStepChange, suppressStepBroadcastRef]);
+    broadcastStepChange(currentStepIndex);
+  }, [currentStepIndex, broadcastStepChange, suppressedRemoteStepRef]);
 
   return (
     <MonacoEditor

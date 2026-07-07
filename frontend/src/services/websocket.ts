@@ -59,7 +59,12 @@ export class CollabWebSocket {
     this.socket.onclose = (event) => {
       console.log("WebSocket connection closed:", event);
       if (this.onClose) this.onClose();
-      
+
+      // 4404 = server rejected the room (session doesn't exist) — retrying is pointless
+      if (event.code === 4404) {
+        this.shouldReconnect = false;
+      }
+
       if (this.shouldReconnect) {
         // Attempt reconnection after 3 seconds
         if (this.reconnectTimeout) {

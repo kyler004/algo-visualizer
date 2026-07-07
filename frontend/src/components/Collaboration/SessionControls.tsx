@@ -17,7 +17,7 @@ export default function SessionControls() {
     setIsCreating(true);
     try {
       const session = await createSession();
-      joinSession(session.slug);
+      joinSession(session.slug, true);
     } catch {
       setError("Failed to create session");
     } finally {

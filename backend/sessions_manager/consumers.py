@@ -22,6 +22,12 @@ def _room_users_key(slug: str) -> str:
     return f'collab:room:{slug}:users'
 
 
+def _room_channels_key(slug: str) -> str:
+    # Maps user_id → channel_name of the connection that owns the roster entry.
+    # Lets us ignore delayed disconnects from a superseded (reconnected) socket.
+    return f'collab:room:{slug}:channels'
+
+
 class CollabConsumer(AsyncWebsocketConsumer):
     """
     Handles one WebSocket connection for one user in one room.
@@ -39,10 +45,13 @@ class CollabConsumer(AsyncWebsocketConsumer):
         self.group_name = f'collab_{self.slug}'
         self.user_id    = None  # Set on first 'user_join' message
 
-        # Verify the session exists before accepting the connection
+        # Verify the session exists. We must accept before closing, otherwise
+        # the handshake is rejected and the browser sees 1006 instead of our
+        # code. 4404 tells the client the room is gone so it stops reconnecting.
         session_exists = await self._session_exists(self.slug)
         if not session_exists:
-            await self.close()
+            await self.accept()
+            await self.close(code=4404)
             return
 
         # Join this user's connection to the room's channel group
@@ -52,15 +61,18 @@ class CollabConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code: int):
         """Called when a client closes the connection (tab closed, network drop, etc.)"""
         if self.user_id:
-            await self._remove_room_user(self.slug, self.user_id)
-            # Broadcast to everyone that this user left
-            await self.channel_layer.group_send(
-                self.group_name,
-                {
-                    'type':    'collab.user_leave',  # Maps to collab_user_leave() below
-                    'user_id': self.user_id,
-                }
-            )
+            removed = await self._remove_room_user(self.slug, self.user_id)
+            # Only broadcast the leave if this connection still owned the
+            # roster entry. A delayed disconnect from a dead socket must not
+            # evict a user who has already reconnected with the same id.
+            if removed:
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        'type':    'collab.user_leave',  # Maps to collab_user_leave() below
+                        'user_id': self.user_id,
+                    }
+                )
 
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
@@ -179,8 +191,12 @@ class CollabConsumer(AsyncWebsocketConsumer):
 
         redis = _get_redis()
         key = _room_users_key(slug)
+        channels_key = _room_channels_key(slug)
         await redis.hset(key, user_id, json.dumps(user))
+        # Record which connection currently owns this roster entry
+        await redis.hset(channels_key, user_id, self.channel_name)
         await redis.expire(key, ROOM_TTL_SECONDS)
+        await redis.expire(channels_key, ROOM_TTL_SECONDS)
 
         others: list[dict] = []
         for uid, raw in (await redis.hgetall(key)).items():
@@ -188,6 +204,17 @@ class CollabConsumer(AsyncWebsocketConsumer):
                 others.append(json.loads(raw))
         return others
 
-    async def _remove_room_user(self, slug: str, user_id: str):
+    async def _remove_room_user(self, slug: str, user_id: str) -> bool:
+        """
+        Remove the user from the roster, but only if this connection still
+        owns the entry. Returns True if the user was actually removed.
+        """
         redis = _get_redis()
+        channels_key = _room_channels_key(slug)
+        owner = await redis.hget(channels_key, user_id)
+        if owner is not None and owner != self.channel_name:
+            return False  # A newer connection (reconnect) owns this entry
+
         await redis.hdel(_room_users_key(slug), user_id)
+        await redis.hdel(channels_key, user_id)
+        return True
