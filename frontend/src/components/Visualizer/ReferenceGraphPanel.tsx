@@ -4,6 +4,8 @@ import {
   Background,
   Controls,
   MiniMap,
+  ReactFlowProvider,
+  useReactFlow,
   useNodesState,
   useEdgesState,
   type Node,
@@ -20,6 +22,7 @@ import {
   isRefValue,
   isPrimitiveValue,
 } from '../../utils/valueUtils'
+import { layoutGraphNodes } from '../../utils/graphLayout'
 import { REFERENCE_FIELDS } from '../../types/value'
 import type { SerializedValue } from '../../types/value'
 import type { ThemeDefinition } from '../../themes/definitions'
@@ -48,16 +51,14 @@ function buildFlowData(
   const edges: Edge[] = []
   const refFields = REFERENCE_FIELDS as readonly string[]
 
-  instances.forEach((inst, i) => {
-    const col = i % 3
-    const row = Math.floor(i / 3)
+  instances.forEach((inst) => {
     const label = inst.isRef
       ? `${inst.class} @ ${inst.id}`
       : getLabel(inst.attrs, inst.class)
 
     nodes.push({
       id: inst.id,
-      position: { x: col * 200, y: row * 120 },
+      position: { x: 0, y: 0 },
       data: {
         label: (
           <div className="text-xs font-mono">
@@ -106,7 +107,7 @@ function buildFlowData(
         if (!targetId) {
           nodes.push({
             id: `${inst.id}-null-${field}`,
-            position: { x: col * 200 + 100, y: row * 120 + 60 },
+            position: { x: 0, y: 0 },
             data: {
               label: <span className="text-xs text-text-secondary font-mono">null</span>,
             },
@@ -127,24 +128,26 @@ function buildFlowData(
   return { nodes, edges }
 }
 
-export default function ReferenceGraphPanel() {
-  const { steps, currentStepIndex } = useExecutionStore()
-  const themeId = useThemeStore((s) => s.themeId)
-  const theme = getTheme(themeId)
-  const currentStep = steps[currentStepIndex]
-
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
-    const variables = currentStep?.variables ?? {}
-    return buildFlowData(variables, theme)
-  }, [currentStep, theme])
-
+function ReferenceGraphFlow({
+  initialNodes,
+  initialEdges,
+  theme,
+}: {
+  initialNodes: Node[]
+  initialEdges: Edge[]
+  theme: ThemeDefinition
+}) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+  const { fitView } = useReactFlow()
 
   useEffect(() => {
     setNodes(initialNodes)
     setEdges(initialEdges)
-  }, [initialNodes, initialEdges, setNodes, setEdges])
+    requestAnimationFrame(() => {
+      fitView({ padding: 0.18, duration: 250 })
+    })
+  }, [initialNodes, initialEdges, setNodes, setEdges, fitView])
 
   const gridColor =
     theme.category === 'light'
@@ -155,6 +158,39 @@ export default function ReferenceGraphPanel() {
     theme.category === 'light'
       ? 'rgba(255, 255, 255, 0.6)'
       : 'rgba(0, 0, 0, 0.6)'
+
+  return (
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      fitView
+      fitViewOptions={{ padding: 0.18 }}
+      proOptions={{ hideAttribution: true }}
+      colorMode={theme.category}
+    >
+      <Background gap={16} color={gridColor} />
+      <Controls />
+      <MiniMap
+        nodeColor={hexToRgba(theme.colors.instance, 0.4)}
+        maskColor={maskColor}
+      />
+    </ReactFlow>
+  )
+}
+
+export default function ReferenceGraphPanel() {
+  const { steps, currentStepIndex } = useExecutionStore()
+  const themeId = useThemeStore((s) => s.themeId)
+  const theme = getTheme(themeId)
+  const currentStep = steps[currentStepIndex]
+
+  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
+    const variables = currentStep?.variables ?? {}
+    const { nodes, edges } = buildFlowData(variables, theme)
+    return { nodes: layoutGraphNodes(nodes, edges), edges }
+  }, [currentStep, theme])
 
   if (!currentStep) {
     return (
@@ -176,22 +212,13 @@ export default function ReferenceGraphPanel() {
 
   return (
     <div className="bg-bg-panel h-full min-h-[300px]">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        fitView
-        proOptions={{ hideAttribution: true }}
-        colorMode={theme.category}
-      >
-        <Background gap={16} color={gridColor} />
-        <Controls />
-        <MiniMap
-          nodeColor={hexToRgba(theme.colors.instance, 0.4)}
-          maskColor={maskColor}
+      <ReactFlowProvider>
+        <ReferenceGraphFlow
+          initialNodes={initialNodes}
+          initialEdges={initialEdges}
+          theme={theme}
         />
-      </ReactFlow>
+      </ReactFlowProvider>
     </div>
   )
 }
